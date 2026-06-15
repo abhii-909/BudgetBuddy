@@ -1,0 +1,25 @@
+{
+  "expo": {
+    "name": "BudgetBuddy",
+    "slug": "budget-buddy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "budgetbuddy",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": [
+      "expo-router"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F172A"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
