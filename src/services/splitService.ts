@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { createNotification, createGroupNotifications } from "./notificationService";
 
 export type ExpenseSplit = {
   id: string;
@@ -24,10 +25,12 @@ export type SettlementWithProfiles = Settlement & {
   payer: {
     full_name: string;
     email: string;
+    avatar_url: string | null;
   } | null;
   receiver: {
     full_name: string;
     email: string;
+    avatar_url: string | null;
   } | null;
 };
 
@@ -35,6 +38,7 @@ export type GroupMemberBalance = {
   userId: string;
   fullName: string;
   email: string;
+  avatar_url: string | null;
   netBalance: number; // Positive means they are owed money, negative means they owe money
 };
 
@@ -117,6 +121,29 @@ export const addExpenseWithSplits = async (
       throw splitsError;
     }
 
+    // Dispatch background notifications
+    (async () => {
+      try {
+        const [groupRes, payerRes] = await Promise.all([
+          supabase.from("groups").select("name").eq("id", groupId).single(),
+          supabase.from("profiles").select("full_name").eq("id", paidBy).single()
+        ]);
+        const groupName = groupRes.data?.name || "Group";
+        const payerName = payerRes.data?.full_name || "Someone";
+        
+        await createGroupNotifications(
+          groupId,
+          paidBy,
+          "expense_added",
+          "New Expense Added",
+          `${payerName} added "${title}" (₹${amount}) in ${groupName}.`,
+          { relatedExpenseId: expenseId }
+        );
+      } catch (err) {
+        console.error("Failed to send expense added notifications:", err);
+      }
+    })();
+
     return { data: { expenseId }, error: null };
   } catch (error: any) {
     console.error("Error in addExpenseWithSplits service:", error);
@@ -159,9 +186,13 @@ export const getGroupSplits = async (groupId: string): Promise<{ data: ExpenseSp
 /**
  * Fetches all settlements recorded for a group, including profiles for payer and receiver.
  */
-export const getGroupSettlements = async (groupId: string): Promise<{ data: SettlementWithProfiles[] | null; error: string | null }> => {
+export const getGroupSettlements = async (
+  groupId: string,
+  limit?: number,
+  offset?: number
+): Promise<{ data: SettlementWithProfiles[] | null; error: string | null; hasMore?: boolean }> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("settlements")
       .select(`
         id,
@@ -176,18 +207,34 @@ export const getGroupSettlements = async (groupId: string): Promise<{ data: Sett
         confirmed_by,
         payer:payer_id (
           full_name,
-          email
+          email,
+          avatar_url
         ),
         receiver:receiver_id (
           full_name,
-          email
+          email,
+          avatar_url
         )
       `)
       .eq("group_id", groupId)
       .order("settled_at", { ascending: false });
 
+    if (limit !== undefined && offset !== undefined) {
+      query = query.range(offset, offset + limit);
+    }
+
+    const { data, error } = await query;
+
     if (error) throw error;
-    return { data: data as unknown as SettlementWithProfiles[], error: null };
+
+    let hasMore = false;
+    let resultData = data as unknown as SettlementWithProfiles[];
+    if (limit !== undefined && resultData.length > limit) {
+      hasMore = true;
+      resultData = resultData.slice(0, limit);
+    }
+
+    return { data: resultData, error: null, hasMore };
   } catch (error: any) {
     console.error("Error in getGroupSettlements:", error);
     return { data: null, error: error.message || "Failed to load settlements." };
@@ -231,6 +278,42 @@ export const createSettlementRequest = async (
       });
 
     if (error) throw error;
+
+    // Dispatch background notifications
+    (async () => {
+      try {
+        const [groupRes, payerRes] = await Promise.all([
+          supabase.from("groups").select("name").eq("id", groupId).single(),
+          supabase.from("profiles").select("full_name").eq("id", payerId).single()
+        ]);
+        const groupName = groupRes.data?.name || "Group";
+        const payerName = payerRes.data?.full_name || "Someone";
+
+        // Fetch the newly created settlement ID to link it
+        const { data: setRes } = await supabase
+          .from("settlements")
+          .select("id")
+          .eq("group_id", groupId)
+          .eq("payer_id", payerId)
+          .eq("receiver_id", receiverId)
+          .eq("amount", amount)
+          .order("settled_at", { ascending: false })
+          .limit(1)
+          .single();
+
+        await createNotification({
+          userId: receiverId,
+          type: "settlement_recorded",
+          title: "Settlement Recorded",
+          message: `${payerName} recorded a payment of ₹${amount} in ${groupName}. Awaiting your confirmation.`,
+          relatedGroupId: groupId,
+          relatedSettlementId: setRes?.id
+        });
+      } catch (err) {
+        console.error("Failed to send settlement recorded notification:", err);
+      }
+    })();
+
     return { error: null };
   } catch (error: any) {
     console.error("Error in createSettlementRequest service:", error);
@@ -270,6 +353,32 @@ export const confirmSettlement = async (
       .eq("id", settlementId);
 
     if (error) throw error;
+
+    // Dispatch background notifications
+    (async () => {
+      try {
+        const { data: setRes } = await supabase
+          .from("settlements")
+          .select("group_id, payer_id, receiver_id, amount, groups(name), receiver:receiver_id(full_name)")
+          .eq("id", settlementId)
+          .single();
+        if (setRes) {
+          const groupName = (setRes as any).groups?.name || "Group";
+          const receiverName = (setRes as any).receiver?.full_name || "Someone";
+          await createNotification({
+            userId: setRes.payer_id,
+            type: "settlement_recorded",
+            title: "Settlement Confirmed",
+            message: `${receiverName} confirmed your payment of ₹${setRes.amount} in ${groupName}.`,
+            relatedGroupId: setRes.group_id,
+            relatedSettlementId: settlementId
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send settlement confirmed notification:", err);
+      }
+    })();
+
     return { error: null };
   } catch (error: any) {
     console.error("Error in confirmSettlement service:", error);
@@ -306,6 +415,32 @@ export const rejectSettlement = async (
       .eq("id", settlementId);
 
     if (error) throw error;
+
+    // Dispatch background notifications
+    (async () => {
+      try {
+        const { data: setRes } = await supabase
+          .from("settlements")
+          .select("group_id, payer_id, receiver_id, amount, groups(name), receiver:receiver_id(full_name)")
+          .eq("id", settlementId)
+          .single();
+        if (setRes) {
+          const groupName = (setRes as any).groups?.name || "Group";
+          const receiverName = (setRes as any).receiver?.full_name || "Someone";
+          await createNotification({
+            userId: setRes.payer_id,
+            type: "settlement_recorded",
+            title: "Settlement Rejected",
+            message: `${receiverName} rejected your payment of ₹${setRes.amount} in ${groupName}.`,
+            relatedGroupId: setRes.group_id,
+            relatedSettlementId: settlementId
+          });
+        }
+      } catch (err) {
+        console.error("Failed to send settlement rejected notification:", err);
+      }
+    })();
+
     return { error: null };
   } catch (error: any) {
     console.error("Error in rejectSettlement service:", error);
@@ -317,18 +452,19 @@ export const rejectSettlement = async (
  * Calculates net balances and who owes whom for a group.
  */
 export const calculateGroupBalances = (
-  members: { user_id: string; profiles: { full_name: string; email: string } | null }[],
+  members: { user_id: string; profiles: { full_name: string; email: string; avatar_url: string | null } | null }[],
   expenses: { id: string; amount: number; paid_by: string }[],
   splits: ExpenseSplit[],
   settlements: Settlement[]
 ): { balances: GroupMemberBalance[]; summaries: WhoOwesWhomSummary[] } => {
   // 1. Initialize balances map for all group members
-  const balanceMap: { [userId: string]: { fullName: string; email: string; paid: number; owes: number; settledPaid: number; settledRecv: number } } = {};
+  const balanceMap: { [userId: string]: { fullName: string; email: string; avatarUrl: string | null; paid: number; owes: number; settledPaid: number; settledRecv: number } } = {};
 
   members.forEach((m) => {
     balanceMap[m.user_id] = {
       fullName: m.profiles?.full_name || "Unknown User",
       email: m.profiles?.email || "",
+      avatarUrl: m.profiles?.avatar_url || null,
       paid: 0,
       owes: 0,
       settledPaid: 0,
@@ -371,6 +507,7 @@ export const calculateGroupBalances = (
       userId,
       fullName: u.fullName,
       email: u.email,
+      avatar_url: u.avatarUrl,
       netBalance: parseFloat(netBalance.toFixed(2))
     };
   });

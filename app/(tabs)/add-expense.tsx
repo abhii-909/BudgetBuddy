@@ -14,16 +14,19 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomButton } from "../../components/CustomButton";
 import { Header } from "../../components/Header";
-import { colors } from "../../constants/colors";
 import { useAuth } from "../../src/hooks/useAuth";
 import { getUserGroups, getGroupMembers, type Group } from "../../src/services/groupService";
 import { getExpenseDetails } from "../../src/services/expenseService";
 import { addExpenseWithSplits, updateExpenseWithSplits, hasConfirmedSettlements } from "../../src/services/splitService";
 import { supabase } from "../../src/lib/supabase";
+import { useTheme } from "../../src/hooks/useTheme";
+import { ColorTheme } from "../../src/constants/theme";
 
 export default function AddExpenseScreen() {
   const { groupId, expenseId } = useLocalSearchParams<{ groupId: string; expenseId: string }>();
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const isEditMode = !!expenseId;
 
   const [title, setTitle] = useState("");
@@ -211,17 +214,18 @@ export default function AddExpenseScreen() {
 
   if (loadingExpense) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.primary} size="large" />
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "left", "right"]}>
       <ScrollView
+        style={styles.scrollView}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -245,7 +249,7 @@ export default function AddExpenseScreen() {
             editable={!isEditingBlocked}
             onChangeText={setTitle}
             placeholder="Dinner, rent, movie tickets..."
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             style={[styles.input, isEditingBlocked && styles.inputDisabled]}
             value={title}
           />
@@ -256,7 +260,7 @@ export default function AddExpenseScreen() {
             keyboardType="decimal-pad"
             onChangeText={setAmount}
             placeholder="₹0.00"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             style={[styles.input, isEditingBlocked && styles.inputDisabled]}
             value={amount}
           />
@@ -268,7 +272,7 @@ export default function AddExpenseScreen() {
             style={[styles.selector, isGroupLocked && styles.selectorDisabled]}
           >
             {loadingGroups ? (
-              <ActivityIndicator color={colors.primary} size="small" />
+              <ActivityIndicator color={theme.primary} size="small" />
             ) : (
               <Text style={[styles.selectorText, !selectedGroup && styles.placeholderText]}>
                 {selectedGroup ? selectedGroup.name : "Select a group"}
@@ -283,7 +287,7 @@ export default function AddExpenseScreen() {
             multiline
             onChangeText={setNotes}
             placeholder="Add optional notes"
-            placeholderTextColor={colors.textMuted}
+            placeholderTextColor={theme.textMuted}
             style={[styles.input, styles.notes, isEditingBlocked && styles.inputDisabled]}
             textAlignVertical="top"
             value={notes}
@@ -323,7 +327,7 @@ export default function AddExpenseScreen() {
             <View style={styles.checklistContainer}>
               <Text style={styles.checklistTitle}>Select Participants</Text>
               {loadingMembers ? (
-                <ActivityIndicator color={colors.primary} size="small" style={{ marginVertical: 12 }} />
+                <ActivityIndicator color={theme.primary} size="small" style={{ marginVertical: 12 }} />
               ) : groupMembers.length === 0 ? (
                 <Text style={styles.noMembersText}>No group members found.</Text>
               ) : (
@@ -372,7 +376,6 @@ export default function AddExpenseScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal for Group Selection */}
       <Modal
         animationType="slide"
         transparent
@@ -410,10 +413,13 @@ export default function AddExpenseScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
+  },
+  scrollView: {
+    backgroundColor: theme.background
   },
   content: {
     padding: 20,
@@ -421,40 +427,40 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1,
     justifyContent: "center"
   },
   formCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 22,
     padding: 18,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.06,
     shadowRadius: 20,
     elevation: 4
   },
   label: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 8,
     marginTop: 14
   },
   input: {
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 14,
     borderWidth: 1,
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     minHeight: 52,
     paddingHorizontal: 14
   },
   inputDisabled: {
     opacity: 0.6,
-    backgroundColor: colors.border
+    backgroundColor: theme.border
   },
   notes: {
     minHeight: 104,
@@ -462,8 +468,8 @@ const styles = StyleSheet.create({
   },
   selector: {
     alignItems: "center",
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
@@ -473,18 +479,18 @@ const styles = StyleSheet.create({
   },
   selectorDisabled: {
     opacity: 0.65,
-    backgroundColor: colors.border
+    backgroundColor: theme.border
   },
   selectorText: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     fontWeight: "600"
   },
   placeholderText: {
-    color: colors.textMuted
+    color: theme.textMuted
   },
   selectorArrow: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 22
   },
   splitTypeContainer: {
@@ -497,30 +503,30 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderWidth: 1,
     borderRadius: 14,
     minHeight: 48
   },
   splitTypeOptionSelected: {
-    backgroundColor: colors.primarySoft,
-    borderColor: colors.primary
+    backgroundColor: theme.primarySoft,
+    borderColor: theme.primary
   },
   splitTypeOptionText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     fontWeight: "700"
   },
   splitTypeOptionTextSelected: {
-    color: colors.primaryDark
+    color: theme.primaryDark
   },
   disabledOption: {
     opacity: 0.5
   },
   checklistContainer: {
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderWidth: 1,
     borderRadius: 16,
     padding: 14,
@@ -528,7 +534,7 @@ const styles = StyleSheet.create({
     marginBottom: 6
   },
   checklistTitle: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 15,
     fontWeight: "800",
     marginBottom: 12
@@ -537,7 +543,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 10,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.border,
     borderBottomWidth: 1
   },
   checkbox: {
@@ -545,17 +551,17 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: colors.textMuted,
+    borderColor: theme.textMuted,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12
   },
   checkboxChecked: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary
+    backgroundColor: theme.primary,
+    borderColor: theme.primary
   },
   checkboxTick: {
-    color: colors.white,
+    color: theme.white,
     fontSize: 13,
     fontWeight: "900"
   },
@@ -563,12 +569,12 @@ const styles = StyleSheet.create({
     opacity: 0.5
   },
   checkText: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 15,
     fontWeight: "600"
   },
   noMembersText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 13,
     textAlign: "center",
     marginVertical: 10
@@ -577,15 +583,15 @@ const styles = StyleSheet.create({
     marginTop: 22
   },
   warningBanner: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: theme.dangerSoft,
     borderRadius: 14,
     padding: 14,
     marginBottom: 18,
     borderWidth: 1,
-    borderColor: colors.danger + "33"
+    borderColor: theme.danger + "33"
   },
   warningText: {
-    color: colors.danger,
+    color: theme.danger,
     fontSize: 13,
     fontWeight: "700",
     textAlign: "center",
@@ -597,19 +603,19 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end"
   },
   modalContent: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     maxHeight: "75%",
     padding: 24,
-    shadowColor: "#000",
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: -10 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 10
   },
   modalTitle: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 20,
     fontWeight: "900",
     marginBottom: 20,
@@ -619,18 +625,18 @@ const styles = StyleSheet.create({
     marginBottom: 20
   },
   groupItem: {
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.border,
     borderBottomWidth: 1,
     paddingVertical: 16,
     paddingHorizontal: 8
   },
   groupItemText: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     fontWeight: "600"
   },
   noGroupsText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 15,
     textAlign: "center",
     paddingVertical: 20

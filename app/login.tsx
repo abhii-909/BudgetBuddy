@@ -2,6 +2,7 @@ import { Redirect, router } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,8 +14,9 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomButton } from "../components/CustomButton";
-import { colors } from "../constants/colors";
 import { useAuth } from "../src/hooks/useAuth";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 const isValidEmail = (email: string) => {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -22,6 +24,8 @@ const isValidEmail = (email: string) => {
 
 export default function LoginScreen() {
   const { login, session, loading } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loadingLogin, setLoadingLogin] = useState(false);
@@ -33,7 +37,7 @@ export default function LoginScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -82,7 +86,7 @@ export default function LoginScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView
@@ -91,7 +95,13 @@ export default function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/");
+              }
+            }}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
             <Text style={styles.backText}>← Back</Text>
@@ -99,7 +109,7 @@ export default function LoginScreen() {
 
           <View style={styles.header}>
             <View style={styles.logo}>
-              <Text style={styles.logoText}>BB</Text>
+              <Image source={require("../assets/icon.png")} style={styles.logoImage} />
             </View>
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>
@@ -117,7 +127,7 @@ export default function LoginScreen() {
               onFocus={() => setFocusedField("email")}
               onBlur={() => setFocusedField(null)}
               placeholder="you@example.com"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               style={[styles.input, focusedField === "email" && styles.inputFocused]}
               value={email}
             />
@@ -128,7 +138,7 @@ export default function LoginScreen() {
               onFocus={() => setFocusedField("password")}
               onBlur={() => setFocusedField(null)}
               placeholder="Enter your password"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               secureTextEntry
               style={[styles.input, focusedField === "password" && styles.inputFocused]}
               value={password}
@@ -166,14 +176,14 @@ export default function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
   },
   loadingContainer: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1,
     justifyContent: "center"
   },
@@ -194,7 +204,7 @@ const styles = StyleSheet.create({
     opacity: 0.7
   },
   backText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 15,
     fontWeight: "800"
   },
@@ -204,71 +214,75 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     borderRadius: 24,
     height: 64,
     justifyContent: "center",
     marginBottom: 18,
     width: 64
   },
+  logoImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 24
+  },
   logoText: {
-    color: colors.white,
+    color: theme.white,
     fontSize: 20,
     fontWeight: "900"
   },
   title: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 30,
     fontWeight: "900",
     marginBottom: 8
   },
   subtitle: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 15,
     lineHeight: 22,
     maxWidth: 310,
     textAlign: "center"
   },
   formCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 24,
     padding: 20,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.07,
     shadowRadius: 22,
     elevation: 5
   },
   label: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 8,
     marginTop: 14
   },
   input: {
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 14,
     borderWidth: 1,
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     minHeight: 52,
     paddingHorizontal: 14
   },
   inputFocused: {
-    borderColor: colors.primary,
-    backgroundColor: colors.white
+    borderColor: theme.primary,
+    backgroundColor: theme.white
   },
-
   messageBoxError: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: theme.dangerSoft,
     borderRadius: 14,
     marginTop: 18,
     padding: 12
   },
   errorText: {
-    color: colors.danger,
+    color: theme.danger,
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20
@@ -282,12 +296,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8
   },
   signupText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     fontWeight: "600"
   },
   signupTextStrong: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontWeight: "900"
   }
 });

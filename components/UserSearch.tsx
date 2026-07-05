@@ -7,8 +7,9 @@ import {
   TextInput,
   View
 } from "react-native";
-import { colors } from "../constants/colors";
 import { searchUsers, type SearchedUser } from "../src/services/groupService";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 type UserSearchProps = {
   onSelectUser: (user: SearchedUser) => void;
@@ -16,6 +17,8 @@ type UserSearchProps = {
 };
 
 export function UserSearch({ onSelectUser, excludeUserIds }: UserSearchProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [query, setQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<SearchedUser[]>([]);
@@ -54,7 +57,7 @@ export function UserSearch({ onSelectUser, excludeUserIds }: UserSearchProps) {
           autoCorrect={false}
           onChangeText={setQuery}
           placeholder="Search by name or email"
-          placeholderTextColor={colors.textMuted}
+          placeholderTextColor={theme.textMuted}
           style={styles.searchInput}
           value={query}
         />
@@ -73,7 +76,7 @@ export function UserSearch({ onSelectUser, excludeUserIds }: UserSearchProps) {
           ]}
         >
           {loading ? (
-            <ActivityIndicator color={colors.white} size="small" />
+            <ActivityIndicator color={theme.white} size="small" />
           ) : (
             <Text style={styles.searchButtonText}>Search</Text>
           )}
@@ -114,21 +117,21 @@ export function UserSearch({ onSelectUser, excludeUserIds }: UserSearchProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   container: {
-    marginBottom: 20
+    marginBottom: 16
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
+    color: theme.text,
+    fontSize: 18,
+    fontWeight: "700",
     marginBottom: 10,
-    marginTop: 10
+    marginTop: 0
   },
   searchBox: {
     alignItems: "center",
-    backgroundColor: colors.white,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
@@ -137,7 +140,7 @@ const styles = StyleSheet.create({
     minHeight: 58
   },
   searchInput: {
-    color: colors.text,
+    color: theme.text,
     flex: 1,
     fontSize: 16,
     minHeight: 52
@@ -147,12 +150,12 @@ const styles = StyleSheet.create({
     marginRight: 4
   },
   clearText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     fontWeight: "bold"
   },
   searchButton: {
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     borderRadius: 12,
     height: 44,
     justifyContent: "center",
@@ -160,26 +163,26 @@ const styles = StyleSheet.create({
     alignItems: "center"
   },
   buttonDisabled: {
-    backgroundColor: colors.border
+    backgroundColor: theme.border
   },
   buttonPressed: {
     opacity: 0.85
   },
   searchButtonText: {
-    color: colors.white,
+    color: theme.white,
     fontSize: 14,
     fontWeight: "800"
   },
   noResults: {
-    color: colors.danger,
+    color: theme.danger,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 8,
     textAlign: "center"
   },
   resultsCard: {
-    backgroundColor: colors.white,
-    borderColor: colors.border,
+    backgroundColor: theme.card,
+    borderColor: theme.border,
     borderRadius: 16,
     borderWidth: 1,
     marginTop: 10,
@@ -187,7 +190,7 @@ const styles = StyleSheet.create({
   },
   userRow: {
     alignItems: "center",
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.border,
     borderBottomWidth: 1,
     flexDirection: "row",
     padding: 12,
@@ -195,14 +198,14 @@ const styles = StyleSheet.create({
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 18,
     height: 36,
     justifyContent: "center",
     width: 36
   },
   avatarText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 14,
     fontWeight: "800"
   },
@@ -212,23 +215,23 @@ const styles = StyleSheet.create({
     marginRight: 12
   },
   name: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: "700",
     marginBottom: 2
   },
   email: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 12
   },
   addButton: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 6
   },
   addButtonText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 12,
     fontWeight: "800"
   }

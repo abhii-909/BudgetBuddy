@@ -1,12 +1,15 @@
 import { Redirect, router } from "expo-router";
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomButton } from "../components/CustomButton";
-import { colors } from "../constants/colors";
 import { useAuth } from "../src/hooks/useAuth";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 export default function WelcomeScreen() {
   const { session, loading } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   const openLogin = () => {
     router.push("/login");
@@ -20,7 +23,7 @@ export default function WelcomeScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -35,7 +38,7 @@ export default function WelcomeScreen() {
       <View style={styles.container}>
         <View style={styles.hero}>
           <View style={styles.logo}>
-            <Text style={styles.logoText}>💰</Text>
+            <Image source={require("../assets/icon.png")} style={styles.logoImage} />
           </View>
           <Text style={styles.appName}>BudgetBuddy</Text>
           <Text style={styles.tagline}>Split expenses with friends</Text>
@@ -59,14 +62,14 @@ export default function WelcomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
   },
   loadingContainer: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1,
     justifyContent: "center"
   },
@@ -82,52 +85,57 @@ const styles = StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     borderRadius: 34,
     height: 88,
     justifyContent: "center",
     marginBottom: 24,
-    shadowColor: colors.primary,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 14 },
     shadowOpacity: 0.25,
     shadowRadius: 24,
     width: 88
   },
+  logoImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 34
+  },
   logoText: {
-    color: colors.white,
+    color: theme.white,
     fontSize: 28,
     fontWeight: "900"
   },
   appName: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 38,
     fontWeight: "900",
     marginBottom: 10
   },
   tagline: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 18,
     fontWeight: "600"
   },
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 28,
     padding: 22,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.08,
     shadowRadius: 24,
     elevation: 5
   },
   cardTitle: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 22,
     fontWeight: "900",
     lineHeight: 28,
     marginBottom: 8
   },
   cardText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 15,
     lineHeight: 22,
     marginBottom: 22

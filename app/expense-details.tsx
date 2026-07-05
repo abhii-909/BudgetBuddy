@@ -10,15 +10,17 @@ import {
   View
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { CustomButton } from "../components/CustomButton";
 import { Header } from "../components/Header";
-import { colors } from "../constants/colors";
+import { CustomButton } from "../components/CustomButton";
+import { Avatar } from "../components/Avatar";
 import { useAuth } from "../src/hooks/useAuth";
+import { getExpenseDetails, type ExpenseWithPayer } from "../src/services/expenseService";
 import { getGroupDetails, type GroupDetails } from "../src/services/groupService";
-import { getExpenseDetails } from "../src/services/expenseService";
-import { deleteExpense, hasConfirmedSettlements } from "../src/services/splitService";
-import { formatCurrency } from "../src/utils/format";
 import { supabase } from "../src/lib/supabase";
+import { formatCurrency } from "../src/utils/format";
+import { deleteExpense, hasConfirmedSettlements } from "../src/services/splitService";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 type SplitWithProfile = {
   id: string;
@@ -27,15 +29,18 @@ type SplitWithProfile = {
   profiles: {
     full_name: string;
     email: string;
+    avatar_url: string | null;
   } | null;
 };
 
 export default function ExpenseDetailsScreen() {
   const { expenseId, groupId } = useLocalSearchParams<{ expenseId: string; groupId: string }>();
   const { user: currentUser } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
 
   const [loading, setLoading] = useState(true);
-  const [expense, setExpense] = useState<any | null>(null);
+  const [expense, setExpense] = useState<ExpenseWithPayer | null>(null);
   const [splits, setSplits] = useState<SplitWithProfile[]>([]);
   const [group, setGroup] = useState<GroupDetails | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -54,7 +59,8 @@ export default function ExpenseDetailsScreen() {
           user_id,
           profiles:user_id (
             full_name,
-            email
+            email,
+            avatar_url
           )
         `)
         .eq("expense_id", expenseId),
@@ -98,7 +104,7 @@ export default function ExpenseDetailsScreen() {
 
     Alert.alert(
       "Delete Expense",
-      "Are you sure you want to delete this expense? All splits will be permanently removed and net balances will update automatically.",
+      "Are you sure you want to delete this expense? This will recalculate everyone's balances.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -124,7 +130,7 @@ export default function ExpenseDetailsScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.primary} size="large" />
         </View>
       </SafeAreaView>
     );
@@ -135,40 +141,39 @@ export default function ExpenseDetailsScreen() {
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Expense not found.</Text>
-          <Pressable onPress={() => router.back()} style={styles.backButton}>
-            <Text style={styles.backButtonText}>Go Back</Text>
-          </Pressable>
+          <CustomButton title="Go Back" onPress={() => router.back()} />
         </View>
       </SafeAreaView>
     );
   }
 
-  const payerName = expense.profiles?.full_name || "Unknown User";
-  const formattedAmount = formatCurrency(parseFloat(expense.amount));
   const formattedDate = new Date(expense.created_at).toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
     month: "long",
-    day: "numeric"
+    day: "numeric",
+    year: "numeric"
   });
 
-  // Permissions Check: Current user is the payer OR group creator
-  const canModify = currentUser?.id === expense.paid_by || currentUser?.id === group?.created_by;
+  const payerName = expense.paid_by === currentUser?.id ? "You" : (expense.profiles?.full_name || "Unknown");
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.topRow}>
-          <Pressable onPress={() => router.back()} style={styles.backButtonTextContainer}>
-            <Text style={styles.backText}>Back</Text>
+          <Pressable
+            onPress={() => router.back()}
+            style={styles.backButtonTextContainer}
+          >
+            <Text style={styles.backText}>← Back</Text>
           </Pressable>
         </View>
 
-        <Header subtitle="Detailed split details" title="Expense Details" />
+        <Header subtitle="Expense Details" title={expense.title} />
 
-        {/* Main Details Card */}
         <View style={styles.detailsCard}>
-          <Text style={styles.amountText}>{formattedAmount}</Text>
+          <Text style={styles.amountText}>{formatCurrency(expense.amount)}</Text>
           <Text style={styles.titleText}>{expense.title}</Text>
           
           <View style={styles.divider} />
@@ -177,70 +182,63 @@ export default function ExpenseDetailsScreen() {
             <Text style={styles.metaLabel}>Paid By</Text>
             <Text style={styles.metaValue}>{payerName}</Text>
           </View>
-
+          
           <View style={styles.metaRow}>
-            <Text style={styles.metaLabel}>Date</Text>
+            <Text style={styles.metaLabel}>Date Added</Text>
             <Text style={styles.metaValue}>{formattedDate}</Text>
           </View>
 
           {expense.notes ? (
             <View style={styles.notesSection}>
-              <Text style={styles.notesLabel}>Notes</Text>
+              <Text style={styles.notesLabel}>NOTES</Text>
               <Text style={styles.notesText}>{expense.notes}</Text>
             </View>
           ) : null}
         </View>
 
-        {/* Splits/Participants Card */}
         <Text style={styles.sectionTitle}>Split Details</Text>
+        
         <View style={styles.splitsCard}>
           {splits.map((split) => {
-            const memberName = split.profiles?.full_name || "Unknown User";
-            const initial = memberName.charAt(0).toUpperCase();
+            const splitMemberName = split.user_id === currentUser?.id ? "You" : (split.profiles?.full_name || "Unknown");
             return (
               <View key={split.id} style={styles.splitRow}>
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initial}</Text>
-                </View>
+                <Avatar
+                  avatarUrl={split.profiles?.avatar_url}
+                  fullName={split.profiles?.full_name || "Unknown"}
+                  email={split.profiles?.email}
+                  size="small"
+                />
                 <View style={styles.splitInfo}>
-                  <Text style={styles.splitName}>{memberName}</Text>
+                  <Text style={styles.splitName}>{splitMemberName}</Text>
                 </View>
-                <Text style={styles.splitShare}>{formatCurrency(split.amount_owed)}</Text>
+                <Text style={styles.splitShare}>
+                  {formatCurrency(split.amount_owed)}
+                </Text>
               </View>
             );
           })}
         </View>
 
-        {/* Edit and Delete Buttons (Payer or Creator only) */}
-        {canModify ? (
+        {currentUser?.id === expense.paid_by && (
           <View style={styles.actionContainer}>
-            <CustomButton
-              onPress={() =>
-                router.push({
-                  pathname: "/(tabs)/add-expense",
-                  params: { expenseId: expense.id, groupId: groupId }
-                })
-              }
-              style={styles.actionButton}
-              title="Edit Expense"
-            />
             <CustomButton
               disabled={isDeleting}
               onPress={handleDelete}
               style={[styles.actionButton, styles.deleteButton]}
               title={isDeleting ? "Deleting..." : "Delete Expense"}
-              variant="ghost"
+              variant="danger"
             />
           </View>
-        ) : null}
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
   },
   content: {
@@ -249,18 +247,19 @@ const styles = StyleSheet.create({
   },
   loadingContainer: {
     alignItems: "center",
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1,
     justifyContent: "center"
   },
   errorContainer: {
     alignItems: "center",
+    backgroundColor: theme.background,
     flex: 1,
     justifyContent: "center",
     padding: 24
   },
   errorText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 16
@@ -274,25 +273,25 @@ const styles = StyleSheet.create({
     paddingVertical: 8
   },
   backText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 15,
     fontWeight: "800"
   },
   backButton: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 8
   },
   backButtonText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontWeight: "700"
   },
   detailsCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 22,
     padding: 24,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -303,17 +302,17 @@ const styles = StyleSheet.create({
   amountText: {
     fontSize: 32,
     fontWeight: "900",
-    color: colors.text,
+    color: theme.text,
     marginBottom: 8
   },
   titleText: {
     fontSize: 18,
     fontWeight: "800",
-    color: colors.textMuted,
+    color: theme.textMuted,
     textAlign: "center"
   },
   divider: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.border,
     height: 1,
     width: "100%",
     marginVertical: 20
@@ -326,46 +325,46 @@ const styles = StyleSheet.create({
   },
   metaLabel: {
     fontSize: 14,
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontWeight: "600"
   },
   metaValue: {
     fontSize: 14,
-    color: colors.text,
+    color: theme.text,
     fontWeight: "800"
   },
   notesSection: {
     width: "100%",
     marginTop: 14,
-    backgroundColor: colors.input,
+    backgroundColor: theme.input,
     padding: 14,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: colors.border
+    borderColor: theme.border
   },
   notesLabel: {
     fontSize: 12,
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontWeight: "800",
     marginBottom: 4
   },
   notesText: {
     fontSize: 14,
-    color: colors.text,
+    color: theme.text,
     fontWeight: "600",
     lineHeight: 20
   },
   sectionTitle: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 18,
     fontWeight: "900",
     marginBottom: 14
   },
   splitsCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 22,
     padding: 8,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
     shadowRadius: 18,
@@ -376,19 +375,19 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.border,
     borderBottomWidth: 1
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 18,
     height: 36,
     justifyContent: "center",
     width: 36
   },
   avatarText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 14,
     fontWeight: "800"
   },
@@ -399,12 +398,12 @@ const styles = StyleSheet.create({
   splitName: {
     fontSize: 15,
     fontWeight: "700",
-    color: colors.text
+    color: theme.text
   },
   splitShare: {
     fontSize: 15,
     fontWeight: "800",
-    color: colors.danger
+    color: theme.danger
   },
   actionContainer: {
     flexDirection: "row",
@@ -414,7 +413,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   deleteButton: {
-    backgroundColor: colors.dangerSoft,
-    borderColor: colors.dangerSoft
+    backgroundColor: theme.dangerSoft,
+    borderColor: theme.dangerSoft
   }
 });

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "../constants/colors";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 type BalanceCardProps = {
   title: string;
@@ -14,6 +15,9 @@ export function BalanceCard({
   tone = "primary",
   fullWidth = false
 }: BalanceCardProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+
   return (
     <View style={[styles.card, fullWidth && styles.fullWidth]}>
       <Text style={styles.title}>{title}</Text>
@@ -22,13 +26,13 @@ export function BalanceCard({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   card: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     flex: 1,
     padding: 18,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06,
     shadowRadius: 18,
@@ -39,7 +43,7 @@ const styles = StyleSheet.create({
     width: "100%"
   },
   title: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     fontWeight: "600",
     marginBottom: 10
@@ -49,12 +53,12 @@ const styles = StyleSheet.create({
     fontWeight: "900"
   },
   primary: {
-    color: colors.primaryDark
+    color: theme.primaryDark
   },
   danger: {
-    color: colors.danger
+    color: theme.danger
   },
   secondary: {
-    color: colors.secondary
+    color: theme.secondary
   }
 });

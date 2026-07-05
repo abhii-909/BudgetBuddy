@@ -14,23 +14,28 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomButton } from "../../components/CustomButton";
-import { colors } from "../../constants/colors";
 import { useAuth } from "../../src/hooks/useAuth";
 import { supabase } from "../../src/lib/supabase";
-import { getAvatarInitial } from "../../src/utils/avatar";
+import { Avatar } from "../../components/Avatar";
+import { pickAndUploadAvatar, deleteAvatar } from "../../src/services/avatarService";
 import { getDashboardData, type DashboardData } from "../../src/services/dashboardService";
 import { formatCurrency } from "../../src/utils/format";
+import { useTheme } from "../../src/hooks/useTheme";
+import { ColorTheme } from "../../src/constants/theme";
 
 export default function ProfileScreen() {
-  const { logout, user, updateDisplayName } = useAuth();
+  const { logout, user, updateDisplayName, refreshProfile } = useAuth();
+  const { theme, themeMode, setThemeMode } = useTheme();
+  const styles = getStyles(theme);
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [savingName, setSavingName] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Data states
-  const [profile, setProfile] = useState<{ full_name: string; email: string; created_at: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ full_name: string; email: string; created_at: string | null; avatar_url: string | null } | null>(null);
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [settlementsCount, setSettlementsCount] = useState(0);
 
@@ -51,7 +56,7 @@ export default function ProfileScreen() {
       const [profileRes, dashboardRes, settlementsRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("full_name, email, created_at")
+          .select("full_name, email, created_at, avatar_url")
           .eq("id", user.id)
           .maybeSingle(),
         getDashboardData(user.id),
@@ -126,6 +131,7 @@ export default function ProfileScreen() {
 
       Alert.alert("Success", "Profile name updated successfully!");
       setShowEditModal(false);
+      await refreshProfile();
       loadProfileData();
     } catch (error: any) {
       console.error("Failed to update display name:", error);
@@ -135,10 +141,56 @@ export default function ProfileScreen() {
     }
   };
 
+  const handlePickAvatar = async () => {
+    if (!user) return;
+    setUploading(true);
+    const { data: storagePath, error } = await pickAndUploadAvatar(user.id);
+    setUploading(false);
+
+    if (error) {
+      Alert.alert("Upload Error", error);
+    } else if (storagePath) {
+      // Synchronize context immediately so Dashboard header updates
+      await refreshProfile();
+      loadProfileData();
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    if (!user) return;
+
+    Alert.alert(
+      "Remove Profile Photo?",
+      "Your profile photo will be deleted and your initials will be displayed instead.",
+      [
+        {
+          text: "Cancel",
+          style: "cancel"
+        },
+        {
+          text: "Remove",
+          style: "destructive",
+          onPress: async () => {
+            setUploading(true);
+            const { success, error } = await deleteAvatar(user.id);
+            setUploading(false);
+
+            if (!success || error) {
+              Alert.alert("Error Removing Photo", error || "Failed to delete avatar.");
+            } else {
+              setProfile(prev => prev ? { ...prev, avatar_url: null } : null);
+              await refreshProfile();
+              loadProfileData();
+            }
+          }
+        }
+      ]
+    );
+  };
+
   // Derive Display Info
   const displayName = profile?.full_name || user?.user_metadata?.full_name || "User";
   const displayEmail = profile?.email || user?.email || "";
-  const avatarText = getAvatarInitial(displayName, displayEmail);
 
   const memberSinceRaw = profile?.created_at || user?.created_at;
   const formattedMemberSince = memberSinceRaw
@@ -154,7 +206,7 @@ export default function ProfileScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={colors.primary} size="large" />
+          <ActivityIndicator color={theme.primary} size="large" />
           <Text style={styles.loadingText}>Loading Profile...</Text>
         </View>
       </SafeAreaView>
@@ -166,14 +218,29 @@ export default function ProfileScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl colors={[colors.primary]} onRefresh={onRefresh} refreshing={refreshing} />
+          <RefreshControl colors={[theme.primary]} onRefresh={onRefresh} refreshing={refreshing} />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Profile Card Hero */}
         <View style={styles.heroCard}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{avatarText}</Text>
+          <View style={styles.avatarContainer}>
+            <Avatar
+              avatarUrl={profile?.avatar_url}
+              fullName={displayName}
+              email={displayEmail}
+              size="large"
+              onPress={handlePickAvatar}
+              loading={uploading}
+            />
+            <Pressable onPress={handlePickAvatar} disabled={uploading}>
+              <Text style={styles.changePhotoText}>Change Photo</Text>
+            </Pressable>
+            {profile?.avatar_url ? (
+              <Pressable onPress={handleRemoveAvatar} disabled={uploading}>
+                <Text style={styles.removePhotoText}>Remove Photo</Text>
+              </Pressable>
+            ) : null}
           </View>
           <View style={styles.heroDetails}>
             <Text style={styles.heroName}>{displayName}</Text>
@@ -184,31 +251,31 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Financial Snapshot */}
-        <Text style={styles.sectionTitle}>Financial Snapshot</Text>
+        {/* Your Balance */}
+        <Text style={styles.sectionTitle}>Your Balance</Text>
         <View style={styles.snapshotCard}>
           <View style={styles.snapshotRow}>
             <View style={styles.snapshotItem}>
-              <Text style={styles.snapshotLabel}>Total Owed To You</Text>
-              <Text style={[styles.snapshotValue, { color: colors.primary }]}>
+              <Text style={styles.snapshotLabel}>To Receive</Text>
+              <Text style={[styles.snapshotValue, { color: theme.primary }]}>
                 {formatCurrency(dashboard?.totalOwedToMe || 0)}
               </Text>
             </View>
             <View style={styles.snapshotDivider} />
             <View style={styles.snapshotItem}>
-              <Text style={styles.snapshotLabel}>Total You Owe</Text>
-              <Text style={[styles.snapshotValue, { color: colors.danger }]}>
+              <Text style={styles.snapshotLabel}>To Pay</Text>
+              <Text style={[styles.snapshotValue, { color: theme.danger }]}>
                 {formatCurrency(dashboard?.totalOwed || 0)}
               </Text>
             </View>
           </View>
           <View style={styles.snapshotBottomRow}>
             <View style={styles.netBalanceBox}>
-              <Text style={styles.snapshotSubLabel}>Net Position</Text>
+              <Text style={styles.snapshotSubLabel}>Net Balance</Text>
               <Text
                 style={[
                   styles.netBalanceValue,
-                  (dashboard?.netBalance || 0) >= 0 ? { color: colors.primary } : { color: colors.danger }
+                  (dashboard?.netBalance || 0) >= 0 ? { color: theme.primary } : { color: theme.danger }
                 ]}
               >
                 {(dashboard?.netBalance || 0) >= 0 ? "+" : ""}
@@ -225,22 +292,22 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Statistics Section */}
-        <Text style={styles.sectionTitle}>Activity & Stats</Text>
+        {/* Your Activity Section */}
+        <Text style={styles.sectionTitle}>Your Activity</Text>
         <View style={styles.statsCard}>
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{groupsCount}</Text>
-            <Text style={styles.statLabel}>Groups Joined</Text>
+            <Text style={styles.statLabel}>Groups</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{expensesCount}</Text>
-            <Text style={styles.statLabel}>Expenses Paid</Text>
+            <Text style={styles.statLabel}>Expenses</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
             <Text style={styles.statValue}>{settlementsCount}</Text>
-            <Text style={styles.statLabel}>Settled Items</Text>
+            <Text style={styles.statLabel}>Settlements</Text>
           </View>
         </View>
 
@@ -254,23 +321,23 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={styles.sectionTitle}>Preferences</Text>
-        <View style={styles.settingsCard}>
-          <View style={styles.settingRowInfo}>
-            <Text style={styles.settingText}>Notifications</Text>
-            <Text style={styles.infoLabel}>Soon</Text>
-          </View>
-          <View style={styles.settingRowInfo}>
-            <Text style={styles.settingText}>Dark Mode</Text>
-            <Text style={styles.infoLabel}>Soon</Text>
-          </View>
-          <View style={styles.settingRowInfo}>
-            <Text style={styles.settingText}>Help & Support</Text>
-            <Text style={styles.chevron}>›</Text>
-          </View>
-        </View>
+  <Text style={styles.sectionTitle}>Appearance</Text>
+  <View style={styles.settingsCard}>
+    <Pressable style={styles.settingRow} onPress={() => setThemeMode('system')}>
+      <Text style={styles.settingText}>System</Text>
+      <Text style={styles.chevron}>{themeMode === 'system' ? '✓' : '○'}</Text>
+    </Pressable>
+    <Pressable style={styles.settingRow} onPress={() => setThemeMode('light')}>
+      <Text style={styles.settingText}>Light</Text>
+      <Text style={styles.chevron}>{themeMode === 'light' ? '✓' : '○'}</Text>
+    </Pressable>
+    <Pressable style={styles.settingRow} onPress={() => setThemeMode('dark')}>
+      <Text style={styles.settingText}>Dark</Text>
+      <Text style={styles.chevron}>{themeMode === 'dark' ? '✓' : '○'}</Text>
+    </Pressable>
+  </View>
 
         {/* Logout Section */}
-        <Text style={styles.sectionTitle}>Logout</Text>
         <CustomButton
           onPress={handleLogout}
           style={styles.logoutButton}
@@ -295,7 +362,7 @@ export default function ProfileScreen() {
             <TextInput
               onChangeText={setNewName}
               placeholder="Enter your name"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               style={styles.modalInput}
               value={newName}
             />
@@ -321,10 +388,9 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
   },
   content: {
@@ -337,69 +403,70 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   loadingText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 15,
     fontWeight: "600",
     marginTop: 12
   },
   heroCard: {
     alignItems: "center",
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     flexDirection: "row",
     marginBottom: 24,
     padding: 20,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
     elevation: 3
   },
-  avatar: {
+  avatarContainer: {
     alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderRadius: 36,
-    height: 72,
-    justifyContent: "center",
     marginRight: 16,
-    width: 72
+    gap: 8
   },
-  avatarText: {
-    color: colors.primaryDark,
-    fontSize: 28,
-    fontWeight: "900"
+  changePhotoText: {
+    color: theme.primary,
+    fontSize: 12,
+    fontWeight: "700"
+  },
+  removePhotoText: {
+    color: theme.danger,
+    fontSize: 12,
+    fontWeight: "700"
   },
   heroDetails: {
     flex: 1
   },
   heroName: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 22,
     fontWeight: "800",
     marginBottom: 4
   },
   heroEmail: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     marginBottom: 6
   },
   heroMemberSince: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 12,
     fontStyle: "italic"
   },
   sectionTitle: {
-    color: colors.text,
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: 12,
-    marginTop: 18
+    color: theme.text,
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 16,
+    marginTop: 26
   },
   snapshotCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     padding: 18,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -415,7 +482,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   snapshotLabel: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 12,
     fontWeight: "600",
     marginBottom: 6
@@ -425,12 +492,12 @@ const styles = StyleSheet.create({
     fontWeight: "900"
   },
   snapshotDivider: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.border,
     width: 1
   },
   snapshotBottomRow: {
     alignItems: "center",
-    borderTopColor: colors.border,
+    borderTopColor: theme.border,
     borderTopWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -443,7 +510,7 @@ const styles = StyleSheet.create({
     gap: 8
   },
   snapshotSubLabel: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 13,
     fontWeight: "600"
   },
@@ -452,25 +519,25 @@ const styles = StyleSheet.create({
     fontWeight: "800"
   },
   pendingBadge: {
-    backgroundColor: colors.warningSoft,
-    borderColor: colors.warning,
+    backgroundColor: theme.warningSoft,
+    borderColor: theme.warning,
     borderWidth: 1,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4
   },
   pendingBadgeText: {
-    color: colors.warning,
+    color: theme.warning,
     fontSize: 11,
     fontWeight: "700"
   },
   statsCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     flexDirection: "row",
     justifyContent: "space-between",
     padding: 18,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -478,7 +545,7 @@ const styles = StyleSheet.create({
     marginBottom: 10
   },
   statDivider: {
-    backgroundColor: colors.border,
+    backgroundColor: theme.border,
     width: 1
   },
   statItem: {
@@ -486,21 +553,21 @@ const styles = StyleSheet.create({
     flex: 1
   },
   statValue: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 20,
     fontWeight: "800",
     marginBottom: 4
   },
   statLabel: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 12,
     fontWeight: "600"
   },
   settingsCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     overflow: "hidden",
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -516,7 +583,7 @@ const styles = StyleSheet.create({
   },
   settingRowInfo: {
     alignItems: "center",
-    borderBottomColor: colors.border,
+    borderBottomColor: theme.border,
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
@@ -524,21 +591,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16
   },
   settingText: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: "700"
   },
   chevron: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 20,
     fontWeight: "800"
   },
   infoLabel: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 12,
     fontWeight: "600"
   },
   logoutButton: {
+    marginTop: 24,
     marginBottom: 20
   },
   modalOverlay: {
@@ -548,35 +616,35 @@ const styles = StyleSheet.create({
     justifyContent: "center"
   },
   modalContent: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 24,
     padding: 24,
     width: "85%",
-    shadowColor: "#000",
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
     elevation: 10
   },
   modalTitle: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 20,
     fontWeight: "800",
     marginBottom: 20,
     textAlign: "center"
   },
   modalLabel: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 8
   },
   modalInput: {
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 14,
     borderWidth: 1,
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     minHeight: 52,
     paddingHorizontal: 14,

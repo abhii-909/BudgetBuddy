@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { colors } from "../constants/colors";
+import { StyleSheet, Text, View } from "react-native";
 import { useAuth } from "../src/hooks/useAuth";
-import { getAvatarInitial } from "../src/utils/avatar";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
+import { Avatar } from "./Avatar";
 
 type HeaderProps = {
   title: string;
@@ -10,10 +11,12 @@ type HeaderProps = {
 };
 
 export function Header({ title, subtitle, onAvatarPress }: HeaderProps) {
-  const { user } = useAuth();
-  const fullName = user?.user_metadata?.full_name;
-  const avatarText = getAvatarInitial(fullName, user?.email);
-
+  const { profile, user } = useAuth();
+  const { theme } = useTheme();
+  const fullName = profile?.full_name || user?.user_metadata?.full_name || "";
+  const email = profile?.email || user?.email || "";
+  const avatarUrl = profile?.avatar_url || null;
+  const styles = getStyles(theme);
 
   return (
     <View style={styles.container}>
@@ -21,20 +24,18 @@ export function Header({ title, subtitle, onAvatarPress }: HeaderProps) {
         {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
         <Text style={styles.title}>{title}</Text>
       </View>
-      <Pressable
+      <Avatar
+        avatarUrl={avatarUrl}
+        fullName={fullName}
+        email={email}
+        size="medium"
         onPress={onAvatarPress}
-        style={({ pressed }) => [
-          styles.avatar,
-          pressed && styles.avatarPressed
-        ]}
-      >
-        <Text style={styles.avatarText}>{avatarText}</Text>
-      </Pressable>
+      />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   container: {
     alignItems: "center",
     flexDirection: "row",
@@ -46,29 +47,13 @@ const styles = StyleSheet.create({
     marginRight: 12
   },
   subtitle: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     marginBottom: 6
   },
   title: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 28,
-    fontWeight: "800"
-  },
-  avatar: {
-    alignItems: "center",
-    backgroundColor: colors.primarySoft,
-    borderRadius: 24,
-    height: 48,
-    justifyContent: "center",
-    width: 48
-  },
-  avatarPressed: {
-    opacity: 0.72
-  },
-  avatarText: {
-    color: colors.primaryDark,
-    fontSize: 18,
     fontWeight: "800"
   }
 });

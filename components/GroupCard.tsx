@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "../constants/colors";
 import { formatCurrency } from "../src/utils/format";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 type GroupCardProps = {
   name: string;
@@ -11,6 +12,8 @@ type GroupCardProps = {
 };
 
 export function GroupCard({ name, membersCount = 1, totalExpenses = formatCurrency(0), createdAt, userBalance }: GroupCardProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const formattedDate = createdAt
     ? new Date(createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })
     : null;
@@ -36,10 +39,10 @@ export function GroupCard({ name, membersCount = 1, totalExpenses = formatCurren
             style={[
               styles.balanceText,
               Math.abs(userBalance) < 0.01
-                ? { color: colors.primary }
+                ? { color: theme.primary }
                 : userBalance > 0
-                ? { color: colors.primary }
-                : { color: colors.danger }
+                ? { color: theme.primary }
+                : { color: theme.danger }
             ]}
           >
             {Math.abs(userBalance) < 0.01
@@ -50,19 +53,20 @@ export function GroupCard({ name, membersCount = 1, totalExpenses = formatCurren
           </Text>
         )}
       </View>
+      <Text style={styles.chevron}>›</Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   card: {
     alignItems: "center",
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     flexDirection: "row",
     marginBottom: 14,
     padding: 16,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -70,7 +74,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignItems: "center",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 18,
     height: 48,
     justifyContent: "center",
@@ -78,7 +82,7 @@ const styles = StyleSheet.create({
     width: 48
   },
   badgeText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 20,
     fontWeight: "900"
   },
@@ -86,25 +90,25 @@ const styles = StyleSheet.create({
     flex: 1
   },
   name: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 17,
     fontWeight: "800",
     marginBottom: 4
   },
   members: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 13
   },
   expenseBox: {
     alignItems: "flex-end"
   },
   expenseLabel: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 12,
     marginBottom: 4
   },
   expense: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 15,
     fontWeight: "800"
   },
@@ -112,5 +116,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     marginTop: 4
+  },
+  chevron: {
+    color: theme.textMuted,
+    fontSize: 22,
+    marginLeft: 12,
+    fontWeight: "400"
   }
 });

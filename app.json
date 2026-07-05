@@ -2,24 +2,47 @@
   "expo": {
     "name": "BudgetBuddy",
     "slug": "budget-buddy",
-    "version": "1.0.0",
+    "version": "1.0.0-alpha",
     "orientation": "portrait",
+    "icon": "./assets/icon.png",
     "scheme": "budgetbuddy",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "splash": {
+      "image": "./assets/splash-image.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F172A"
+    },
     "plugins": [
-      "expo-router"
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "BudgetBuddy needs access to your photos to set a profile picture."
+        }
+      ],
+      "expo-font"
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.budgetbuddy.app"
     },
     "android": {
+      "package": "com.budgetbuddy.app",
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0F172A"
       }
     },
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "1ad08265-2da5-4d2d-8954-1d9f6af5b757"
+      }
     }
   }
 }

@@ -14,6 +14,7 @@ export type ExpenseWithPayer = Expense & {
   profiles: {
     full_name: string;
     email: string;
+    avatar_url: string | null;
   } | null;
 };
 
@@ -62,10 +63,12 @@ export const addExpense = async (
  * Fetches all expenses inside a group.
  */
 export const getGroupExpenses = async (
-  groupId: string
-): Promise<{ data: ExpenseWithPayer[] | null; error: string | null }> => {
+  groupId: string,
+  limit?: number,
+  offset?: number
+): Promise<{ data: ExpenseWithPayer[] | null; error: string | null; hasMore?: boolean }> => {
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from("expenses")
       .select(`
         id,
@@ -77,14 +80,29 @@ export const getGroupExpenses = async (
         created_at,
         profiles:paid_by (
           full_name,
-          email
+          email,
+          avatar_url
         )
       `)
       .eq("group_id", groupId)
       .order("created_at", { ascending: false });
 
+    if (limit !== undefined && offset !== undefined) {
+      query = query.range(offset, offset + limit);
+    }
+
+    const { data, error } = await query;
+
     if (error) throw error;
-    return { data: data as unknown as ExpenseWithPayer[], error: null };
+
+    let hasMore = false;
+    let resultData = data as unknown as ExpenseWithPayer[];
+    if (limit !== undefined && resultData.length > limit) {
+      hasMore = true;
+      resultData = resultData.slice(0, limit);
+    }
+
+    return { data: resultData, error: null, hasMore };
   } catch (error: any) {
     console.error("Error in getGroupExpenses:", error);
     return { data: null, error: error.message || "Failed to retrieve group expenses." };
@@ -110,7 +128,8 @@ export const getExpenseDetails = async (
         created_at,
         profiles:paid_by (
           full_name,
-          email
+          email,
+          avatar_url
         )
       `)
       .eq("id", expenseId)

@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "../constants/colors";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 import { CustomButton } from "./CustomButton";
 
 type EmptyStateProps = {
@@ -17,6 +18,9 @@ export function EmptyState({
   actionText,
   onActionPress
 }: EmptyStateProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+
   return (
     <View style={styles.container}>
       {icon ? <Text style={styles.icon}>{icon}</Text> : null}
@@ -34,7 +38,7 @@ export function EmptyState({
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   container: {
     alignItems: "center",
     justifyContent: "center",
@@ -46,21 +50,20 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   title: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 18,
     fontWeight: "800",
     marginBottom: 8,
     textAlign: "center"
   },
   description: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center",
     marginBottom: 20
   },
   button: {
-    marginTop: 8,
     minWidth: 160
   }
 });

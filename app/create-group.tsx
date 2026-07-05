@@ -13,12 +13,15 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { CustomButton } from "../components/CustomButton";
 import { Header } from "../components/Header";
-import { colors } from "../constants/colors";
 import { useAuth } from "../src/hooks/useAuth";
 import { createGroup } from "../src/services/groupService";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 export default function CreateGroupScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -60,7 +63,7 @@ export default function CreateGroupScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardView}
       >
         <ScrollView
@@ -69,7 +72,13 @@ export default function CreateGroupScreen() {
           showsVerticalScrollIndicator={false}
         >
           <Pressable
-            onPress={() => router.back()}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace("/(tabs)/dashboard");
+              }
+            }}
             style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
           >
             <Text style={styles.backText}>← Back</Text>
@@ -85,7 +94,7 @@ export default function CreateGroupScreen() {
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
               placeholder="e.g. Goa Trip, Apartment Crew"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               style={[styles.input, isFocused && styles.inputFocused]}
               value={name}
             />
@@ -119,9 +128,9 @@ export default function CreateGroupScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
   },
   keyboardView: {
@@ -141,62 +150,61 @@ const styles = StyleSheet.create({
     opacity: 0.7
   },
   backText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 15,
     fontWeight: "800"
   },
   formCard: {
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 24,
     padding: 20,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.07,
     shadowRadius: 22,
     elevation: 5
   },
   label: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 14,
     fontWeight: "800",
     marginBottom: 8,
     marginTop: 14
   },
   input: {
-    backgroundColor: colors.input,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 14,
     borderWidth: 1,
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     minHeight: 52,
     paddingHorizontal: 14
   },
   inputFocused: {
-    borderColor: colors.primary,
-    backgroundColor: colors.white
+    borderColor: theme.primary,
+    backgroundColor: theme.white
   },
-
   messageBoxError: {
-    backgroundColor: colors.dangerSoft,
+    backgroundColor: theme.dangerSoft,
     borderRadius: 14,
     marginTop: 18,
     padding: 12
   },
   messageBoxSuccess: {
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 14,
     marginTop: 18,
     padding: 12
   },
   errorText: {
-    color: colors.danger,
+    color: theme.danger,
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20
   },
   successText: {
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 14,
     fontWeight: "700",
     lineHeight: 20

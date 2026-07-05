@@ -69,11 +69,7 @@ export const signUp = async ({ email, password, fullName }: SignUpCredentials) =
         if (insertError) {
           console.error("FAILED TO INSERT PROFILE (potential RLS issue):", insertError);
           throw new Error(`Profile creation failed: ${insertError.message}`);
-        } else {
-          console.log("Profile created successfully for user:", data.user.id);
         }
-      } else {
-        console.log("Profile already exists for user:", data.user.id);
       }
     } catch (profileError: any) {
       console.error("Profile creation step threw an error:", profileError);

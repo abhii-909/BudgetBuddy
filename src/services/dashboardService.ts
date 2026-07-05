@@ -65,7 +65,7 @@ export type DashboardData = {
 type BulkMember = {
   user_id: string;
   group_id: string;
-  profiles: { full_name: string; email: string } | null;
+  profiles: { full_name: string; email: string; avatar_url: string | null } | null;
 };
 
 type BulkExpense = {
@@ -75,7 +75,7 @@ type BulkExpense = {
   paid_by: string;
   group_id: string;
   created_at: string;
-  profiles: { full_name: string; email: string } | null;
+  profiles: { full_name: string; email: string; avatar_url: string | null } | null;
 };
 
 type BulkSettlement = {
@@ -87,8 +87,8 @@ type BulkSettlement = {
   status: string;
   settled_at: string;
   notes: string | null;
-  payer: { full_name: string; email: string } | null;
-  receiver: { full_name: string; email: string } | null;
+  payer: { full_name: string; email: string; avatar_url: string | null } | null;
+  receiver: { full_name: string; email: string; avatar_url: string | null } | null;
 };
 
 // ─── Empty Result ─────────────────────────────────────────────────────────────
@@ -124,7 +124,9 @@ export const getDashboardData = async (
 ): Promise<{ data: DashboardData | null; error: string | null }> => {
   try {
     // ── Round 1a: groups ──────────────────────────────────────────────────
+    const groupsStart = Date.now();
     const { data: groupsData, error: groupsError } = await getUserGroups(userId);
+    console.log(`[BudgetBuddy] Group Fetch Time took: ${Date.now() - groupsStart}ms`);
     if (groupsError) throw new Error(groupsError);
     if (!groupsData || groupsData.length === 0) {
       return { data: emptyDashboard, error: null };
@@ -140,88 +142,145 @@ export const getDashboardData = async (
     });
 
     // ── Round 1b: parallel bulk fetches ───────────────────────────────────
-    const [membersRes, expensesRes, settlementsRes] = await Promise.all([
-      // Q2
+    const parallelStart = Date.now();
+    const [
+      membersRes,
+      userExpensesRes,
+      userSplitsRes,
+      userSettlementsRes,
+      recentExpensesRes,
+      recentSettlementsRes,
+      latestExpsRes,
+      latestSetsRes,
+      pendingSettlementsRes
+    ] = await Promise.all([
+      // 1. Members (without profiles join to save weight)
       supabase
         .from("group_members")
-        .select("user_id, group_id, profiles:user_id ( full_name, email )")
+        .select("user_id, group_id")
         .in("group_id", groupIds),
-
-      // Q3
+      // 2. User paid expenses (for balance calculation)
       supabase
         .from("expenses")
-        .select("id, title, amount, paid_by, group_id, created_at, profiles:paid_by ( full_name, email )")
-        .in("group_id", groupIds)
-        .order("created_at", { ascending: false }),
-
-      // Q4
+        .select("id, amount, paid_by, group_id")
+        .eq("paid_by", userId)
+        .in("group_id", groupIds),
+      // 3. User splits (for balance calculation)
+      supabase
+        .from("expense_splits")
+        .select("id, expense_id, user_id, amount_owed, expenses!inner(group_id)")
+        .eq("user_id", userId)
+        .in("expenses.group_id", groupIds),
+      // 4. User confirmed settlements (for balance calculation)
       supabase
         .from("settlements")
-        .select([
-          "id", "group_id", "payer_id", "receiver_id", "amount",
-          "status", "settled_at", "notes",
-          "payer:payer_id ( full_name, email )",
-          "receiver:receiver_id ( full_name, email )"
-        ].join(", "))
+        .select("id, group_id, payer_id, receiver_id, amount, status")
+        .eq("status", "confirmed")
         .in("group_id", groupIds)
-        .order("settled_at", { ascending: false }),
+        .or(`payer_id.eq.${userId},receiver_id.eq.${userId}`),
+      // 5. Recent expenses (limit 20)
+      supabase
+        .from("expenses")
+        .select("id, title, amount, paid_by, group_id, created_at, profiles:paid_by ( full_name, email, avatar_url )")
+        .in("group_id", groupIds)
+        .order("created_at", { ascending: false })
+        .limit(20),
+      // 6. Recent settlements (limit 20)
+      supabase
+        .from("settlements")
+        .select("id, group_id, payer_id, receiver_id, amount, status, settled_at, notes, payer:payer_id ( full_name, email, avatar_url ), receiver:receiver_id ( full_name, email, avatar_url )")
+        .in("group_id", groupIds)
+        .order("settled_at", { ascending: false })
+        .limit(20),
+      // 7. Latest expense timestamps (limit 50)
+      supabase
+        .from("expenses")
+        .select("group_id, created_at")
+        .in("group_id", groupIds)
+        .order("created_at", { ascending: false })
+        .limit(50),
+      // 8. Latest settlement timestamps (limit 50)
+      supabase
+        .from("settlements")
+        .select("group_id, settled_at")
+        .in("group_id", groupIds)
+        .order("settled_at", { ascending: false })
+        .limit(50),
+      // 9. Pending settlements (user is receiver)
+      supabase
+        .from("settlements")
+        .select("id, group_id, payer_id, receiver_id, amount, status, settled_at, notes, payer:payer_id ( full_name, email, avatar_url )")
+        .eq("status", "pending")
+        .eq("receiver_id", userId)
+        .in("group_id", groupIds),
     ]);
+    console.log(`[BudgetBuddy] Parallel Fetch took: ${Date.now() - parallelStart}ms`);
 
-    const allMembers = (membersRes.data || []) as unknown as BulkMember[];
-    const allExpenses = (expensesRes.data || []) as unknown as BulkExpense[];
-    const allSettlements = (settlementsRes.data || []) as unknown as BulkSettlement[];
-
-    // ── Round 2: expense_splits ───────────────────────────────────────────
-    const expenseIds = allExpenses.map((e) => e.id);
-    let allSplits: ExpenseSplit[] = [];
-    if (expenseIds.length > 0) {
-      const { data: splitsData } = await supabase
-        .from("expense_splits")
-        .select("id, expense_id, user_id, amount_owed")
-        .in("expense_id", expenseIds);
-      allSplits = (splitsData || []) as ExpenseSplit[];
-    }
+    const allMembers = (membersRes.data || []) as any[];
+    const userExpenses = (userExpensesRes.data || []) as any[];
+    const userSplits = (userSplitsRes.data || []).map((s: any) => ({
+      id: s.id,
+      expense_id: s.expense_id,
+      user_id: s.user_id,
+      amount_owed: s.amount_owed
+    }));
+    const userSettlements = (userSettlementsRes.data || []) as any[];
+    const recentExpenses = (recentExpensesRes.data || []) as any[];
+    const recentSettlements = (recentSettlementsRes.data || []) as any[];
+    const latestExps = (latestExpsRes.data || []) as any[];
+    const latestSets = (latestSetsRes.data || []) as any[];
+    const pendingSettlements = (pendingSettlementsRes.data || []) as any[];
 
     // ── Partition by group ─────────────────────────────────────────────────
-    const membersByGroup: Record<string, BulkMember[]> = {};
-    const expensesByGroup: Record<string, BulkExpense[]> = {};
-    const splitsByGroup: Record<string, ExpenseSplit[]> = {};
-    const settlementsByGroup: Record<string, BulkSettlement[]> = {};
+    const membersByGroup: Record<string, any[]> = {};
+    const userExpensesByGroup: Record<string, any[]> = {};
+    const userSplitsByGroup: Record<string, ExpenseSplit[]> = {};
+    const userSettlementsByGroup: Record<string, any[]> = {};
+    const latestExpenseAtMap: Record<string, string> = {};
+    const latestSettlementAtMap: Record<string, string> = {};
 
     groupIds.forEach((gid) => {
       membersByGroup[gid] = [];
-      expensesByGroup[gid] = [];
-      splitsByGroup[gid] = [];
-      settlementsByGroup[gid] = [];
+      userExpensesByGroup[gid] = [];
+      userSplitsByGroup[gid] = [];
+      userSettlementsByGroup[gid] = [];
     });
 
     allMembers.forEach((m) => { if (membersByGroup[m.group_id]) membersByGroup[m.group_id].push(m); });
-    allExpenses.forEach((e) => { if (expensesByGroup[e.group_id]) expensesByGroup[e.group_id].push(e); });
-
-    const expenseGroupMap: Record<string, string> = {};
-    allExpenses.forEach((e) => { expenseGroupMap[e.id] = e.group_id; });
-    allSplits.forEach((s) => {
-      const gid = expenseGroupMap[s.expense_id];
-      if (gid && splitsByGroup[gid]) splitsByGroup[gid].push(s);
+    userExpenses.forEach((e) => { if (userExpensesByGroup[e.group_id]) userExpensesByGroup[e.group_id].push(e); });
+    
+    userSplitsRes.data?.forEach((s: any, idx) => {
+      const gid = s.expenses?.group_id;
+      if (gid && userSplitsByGroup[gid]) {
+        userSplitsByGroup[gid].push(userSplits[idx]);
+      }
     });
 
-    allSettlements.forEach((s) => { if (settlementsByGroup[s.group_id]) settlementsByGroup[s.group_id].push(s); });
+    userSettlements.forEach((s) => { if (userSettlementsByGroup[s.group_id]) userSettlementsByGroup[s.group_id].push(s); });
+
+    latestExps.forEach((e) => {
+      if (!latestExpenseAtMap[e.group_id]) latestExpenseAtMap[e.group_id] = e.created_at;
+    });
+    latestSets.forEach((s) => {
+      if (!latestSettlementAtMap[s.group_id]) latestSettlementAtMap[s.group_id] = s.settled_at;
+    });
 
     // ── Calculate per-group balances ───────────────────────────────────────
+    const balanceCalcStart = Date.now();
     let totalOwed = 0;
     let totalOwedToMe = 0;
 
     const groupSummaries: GroupSummary[] = groupIds.map((gid) => {
-      const members = membersByGroup[gid];
-      const expenses = expensesByGroup[gid];
-      const splits = splitsByGroup[gid];
-      const settlements = settlementsByGroup[gid];
+      const groupMembers = membersByGroup[gid].map((m) => ({ user_id: m.user_id, profiles: null }));
+      const groupExpenses = userExpensesByGroup[gid];
+      const groupSplits = userSplitsByGroup[gid];
+      const groupSettlements = userSettlementsByGroup[gid];
 
       const { balances } = calculateGroupBalances(
-        members as { user_id: string; profiles: { full_name: string; email: string } | null }[],
-        expenses.map((e) => ({ id: e.id, amount: e.amount, paid_by: e.paid_by })),
-        splits,
-        settlements as unknown as Settlement[]
+        groupMembers,
+        groupExpenses,
+        groupSplits,
+        groupSettlements
       );
 
       const userBalance = balances.find((b) => b.userId === userId);
@@ -230,15 +289,17 @@ export const getDashboardData = async (
       if (userNetBalance < -0.01) totalOwed += Math.abs(userNetBalance);
       else if (userNetBalance > 0.01) totalOwedToMe += userNetBalance;
 
-      const totalExpenses = expenses.reduce(
+      // Group totals are pre-calculated in getUserGroups (expenses(amount))
+      const targetGroup = groupsData.find((g) => g.id === gid);
+      const totalExpenses = (targetGroup?.expenses || []).reduce(
         (sum, e) => sum + parseFloat(e.amount as any),
         0
       );
 
       // Last activity = max(latest expense, latest settlement, group created_at)
       const candidates = [
-        expenses[0]?.created_at,
-        settlements[0]?.settled_at,
+        latestExpenseAtMap[gid],
+        latestSettlementAtMap[gid],
         groupCreatedAtMap[gid],
       ].filter(Boolean) as string[];
       const lastActivityAt = candidates.sort().reverse()[0];
@@ -246,7 +307,7 @@ export const getDashboardData = async (
       return {
         groupId: gid,
         groupName: groupNameMap[gid],
-        memberCount: members.length,
+        memberCount: groupMembers.length,
         totalExpenses: parseFloat(totalExpenses.toFixed(2)),
         userNetBalance,
         lastActivityAt,
@@ -256,6 +317,7 @@ export const getDashboardData = async (
     groupSummaries.sort(
       (a, b) => new Date(b.lastActivityAt).getTime() - new Date(a.lastActivityAt).getTime()
     );
+    console.log(`[BudgetBuddy] Balance Calculation took: ${Date.now() - balanceCalcStart}ms`);
 
     // ── Build activity feed ────────────────────────────────────────────────
     const activityItems: ActivityItem[] = [];
@@ -273,12 +335,13 @@ export const getDashboardData = async (
       });
     });
 
-    allExpenses.forEach((e) => {
+    recentExpenses.forEach((e) => {
+      const payerName = e.paid_by === userId ? "You" : (e.profiles?.full_name || "Someone");
       activityItems.push({
         id: `expense-${e.id}`,
         type: "expense",
         title: e.title,
-        subtitle: `Paid by ${e.profiles?.full_name || "Someone"} · ${groupNameMap[e.group_id] || ""}`,
+        subtitle: `Paid by ${payerName} · ${groupNameMap[e.group_id] || ""}`,
         amount: parseFloat(e.amount as any),
         timestamp: e.created_at,
         groupId: e.group_id,
@@ -286,16 +349,19 @@ export const getDashboardData = async (
       });
     });
 
-    allSettlements.forEach((s) => {
+    recentSettlements.forEach((s) => {
       const type: ActivityType =
         s.status === "confirmed" ? "settlement_confirmed"
         : s.status === "rejected" ? "settlement_rejected"
         : "settlement_pending";
 
+      const payerName = s.payer_id === userId ? "You" : (s.payer?.full_name || "Someone");
+      const receiverName = s.receiver_id === userId ? "You" : (s.receiver?.full_name || "Someone");
+
       activityItems.push({
         id: `settlement-${s.id}`,
         type,
-        title: `${s.payer?.full_name || "Someone"} → ${s.receiver?.full_name || "Someone"}`,
+        title: `${payerName} → ${receiverName}`,
         subtitle: `Payment ${s.status} · ${groupNameMap[s.group_id] || ""}`,
         amount: parseFloat(s.amount as any),
         timestamp: s.settled_at,
@@ -309,26 +375,24 @@ export const getDashboardData = async (
       .slice(0, 20);
 
     // ── Pending actions ────────────────────────────────────────────────────
-    const pendingActions: PendingAction[] = allSettlements
-      .filter((s) => s.status === "pending" && s.receiver_id === userId)
-      .map((s) => ({
-        settlementId: s.id,
-        groupId: s.group_id,
-        groupName: groupNameMap[s.group_id] || "",
-        payerName: s.payer?.full_name || "Someone",
-        amount: parseFloat(s.amount as any),
-      }));
+    const pendingActions: PendingAction[] = pendingSettlements.map((s) => ({
+      settlementId: s.id,
+      groupId: s.group_id,
+      groupName: groupNameMap[s.group_id] || "",
+      payerName: s.payer?.full_name || "Someone",
+      amount: parseFloat(s.amount as any),
+    }));
 
-    // ── Flat expense list for History tab ─────────────────────────────────
-    const allExpensesForHistory: DashboardExpense[] = allExpenses.map((e) => ({
+    // ── Flat user-paid expenses for Profile screen stats ───────────────────
+    const allExpensesForStats: DashboardExpense[] = userExpenses.map((e) => ({
       id: e.id,
-      title: e.title,
-      amount: parseFloat(e.amount as any),
+      title: "",
+      amount: 0,
       paid_by: e.paid_by,
       group_id: e.group_id,
-      created_at: e.created_at,
-      payerName: e.profiles?.full_name || "Unknown",
-      groupName: groupNameMap[e.group_id] || "",
+      created_at: "",
+      payerName: "",
+      groupName: "",
     }));
 
     return {
@@ -339,12 +403,53 @@ export const getDashboardData = async (
         groupSummaries,
         recentActivity,
         pendingActions,
-        allExpenses: allExpensesForHistory,
+        allExpenses: allExpensesForStats,
       },
       error: null,
     };
   } catch (err: any) {
     console.error("Error in getDashboardData:", err);
     return { data: null, error: err.message || "Failed to load dashboard data." };
+  }
+};
+
+export const getExpenseHistory = async (
+  userId: string
+): Promise<{ data: DashboardExpense[] | null; error: string | null }> => {
+  try {
+    const { data: groupsData, error: groupsError } = await getUserGroups(userId);
+    if (groupsError) throw new Error(groupsError);
+    if (!groupsData || groupsData.length === 0) {
+      return { data: [], error: null };
+    }
+    const groupIds = groupsData.map((g) => g.id);
+    const groupNameMap: Record<string, string> = {};
+    groupsData.forEach((g) => {
+      groupNameMap[g.id] = g.name;
+    });
+
+    const { data: expensesData, error: expensesError } = await supabase
+      .from("expenses")
+      .select("id, title, amount, paid_by, group_id, created_at, profiles:paid_by ( full_name, email, avatar_url )")
+      .in("group_id", groupIds)
+      .order("created_at", { ascending: false });
+
+    if (expensesError) throw expensesError;
+
+    const allExpensesForHistory: DashboardExpense[] = (expensesData || []).map((e: any) => ({
+      id: e.id,
+      title: e.title,
+      amount: parseFloat(e.amount as any),
+      paid_by: e.paid_by,
+      group_id: e.group_id,
+      created_at: e.created_at,
+      payerName: e.paid_by === userId ? "You" : (e.profiles?.full_name || "Unknown"),
+      groupName: groupNameMap[e.group_id] || "",
+    }));
+
+    return { data: allExpensesForHistory, error: null };
+  } catch (err: any) {
+    console.error("Error in getExpenseHistory:", err);
+    return { data: null, error: err.message || "Failed to load history." };
   }
 };

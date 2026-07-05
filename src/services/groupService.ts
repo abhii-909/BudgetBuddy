@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { createNotification, createGroupNotifications } from "./notificationService";
 
 export type Group = {
   id: string;
@@ -20,6 +21,7 @@ export type MemberProfile = {
   profiles: {
     full_name: string;
     email: string;
+    avatar_url: string | null;
   } | null;
 };
 
@@ -27,6 +29,7 @@ export type SearchedUser = {
   id: string;
   full_name: string;
   email: string;
+  avatar_url: string | null;
 };
 
 export type CreateGroupResponse = {
@@ -179,7 +182,8 @@ export const getGroupMembers = async (groupId: string): Promise<{ data: MemberPr
         joined_at,
         profiles:user_id (
           full_name,
-          email
+          email,
+          avatar_url
         )
       `)
       .eq("group_id", groupId);
@@ -202,7 +206,7 @@ export const searchUsers = async (query: string): Promise<{ data: SearchedUser[]
     const trimmedQuery = query.trim();
     const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedQuery);
 
-    let supabaseQuery = supabase.from("profiles").select("id, full_name, email");
+    let supabaseQuery = supabase.from("profiles").select("id, full_name, email, avatar_url");
 
     if (isEmail) {
       supabaseQuery = supabaseQuery.eq("email", trimmedQuery.toLowerCase());
@@ -239,6 +243,36 @@ export const addGroupMember = async (groupId: string, userId: string): Promise<{
       }
       throw error;
     }
+
+    // Dispatch background notifications
+    (async () => {
+      try {
+        const [groupRes, joinedUserRes] = await Promise.all([
+          supabase.from("groups").select("name").eq("id", groupId).single(),
+          supabase.from("profiles").select("full_name").eq("id", userId).single()
+        ]);
+        const groupName = groupRes.data?.name || "Group";
+        const joinedUserName = joinedUserRes.data?.full_name || "Someone";
+
+        await createNotification({
+          userId: userId,
+          type: "member_joined",
+          title: "Added to Group",
+          message: `You have been added to the group "${groupName}".`,
+          relatedGroupId: groupId
+        });
+
+        await createGroupNotifications(
+          groupId,
+          userId,
+          "member_joined",
+          "Member Joined Group",
+          `${joinedUserName} joined the group "${groupName}".`
+        );
+      } catch (err) {
+        console.error("Failed to send member joined notifications:", err);
+      }
+    })();
 
     return { error: null };
   } catch (error: any) {

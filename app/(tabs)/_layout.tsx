@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, Tabs } from "expo-router";
 import { ActivityIndicator, StyleSheet, View } from "react-native";
-import { colors } from "../../constants/colors";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAuth } from "../../src/hooks/useAuth";
+import { useTheme } from "../../src/hooks/useTheme";
 
 type TabIconName = keyof typeof Ionicons.glyphMap;
 
@@ -14,11 +15,13 @@ function tabIcon(name: TabIconName) {
 
 export default function TabsLayout() {
   const { loading, session } = useAuth();
+  const { theme, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator color={colors.primary} size="large" />
+      <View style={[styles.loadingContainer, { backgroundColor: theme.background }]}>
+        <ActivityIndicator color={theme.primary} size="large" />
       </View>
     );
   }
@@ -27,22 +30,35 @@ export default function TabsLayout() {
     return <Redirect href="/login" />;
   }
 
+  const bottomInset = insets.bottom || 12;
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textMuted,
+        tabBarActiveTintColor: theme.primary,
+        tabBarInactiveTintColor: theme.textMuted,
+        tabBarHideOnKeyboard: true,
+        tabBarItemStyle: {
+          borderRadius: 12,
+          marginHorizontal: 4,
+          marginVertical: 6
+        },
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "700"
         },
         tabBarStyle: {
-          backgroundColor: colors.white,
-          borderTopColor: colors.border,
-          height: 82,
-          paddingBottom: 22,
-          paddingTop: 10
+          backgroundColor: theme.card,
+          borderTopColor: theme.border,
+          height: 60 + bottomInset,
+          paddingBottom: bottomInset,
+          paddingHorizontal: 6,
+          paddingTop: 6,
+          shadowColor: theme.shadow,
+          shadowOffset: { width: 0, height: -8 },
+          shadowOpacity: isDark ? 0.28 : 0.08,
+          shadowRadius: 18
         }
       }}
     >
@@ -73,7 +89,6 @@ export default function TabsLayout() {
 const styles = StyleSheet.create({
   loadingContainer: {
     alignItems: "center",
-    backgroundColor: colors.background,
     flex: 1,
     justifyContent: "center"
   }

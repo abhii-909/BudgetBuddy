@@ -11,13 +11,14 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Header } from "../../components/Header";
 import { EmptyState } from "../../components/EmptyState";
-import { colors } from "../../constants/colors";
 import { useAuth } from "../../src/hooks/useAuth";
 import {
-  getDashboardData,
+  getExpenseHistory,
   type DashboardExpense,
 } from "../../src/services/dashboardService";
 import { formatCurrency } from "../../src/utils/format";
+import { useTheme } from "../../src/hooks/useTheme";
+import { ColorTheme } from "../../src/constants/theme";
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
@@ -30,6 +31,8 @@ function formatDate(iso: string): string {
 
 export default function ExpenseHistoryScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [expenses, setExpenses] = useState<DashboardExpense[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,8 +42,8 @@ export default function ExpenseHistoryScreen() {
     if (isRefreshing) setRefreshing(true);
     else setLoading(true);
 
-    const { data } = await getDashboardData(user.id);
-    setExpenses(data?.allExpenses || []);
+    const { data } = await getExpenseHistory(user.id);
+    setExpenses(data || []);
 
     setLoading(false);
     setRefreshing(false);
@@ -59,7 +62,7 @@ export default function ExpenseHistoryScreen() {
       <ScrollView
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl colors={[colors.primary]} onRefresh={onRefresh} refreshing={refreshing} />
+          <RefreshControl colors={[theme.primary]} onRefresh={onRefresh} refreshing={refreshing} />
         }
         showsVerticalScrollIndicator={false}
       >
@@ -103,23 +106,23 @@ export default function ExpenseHistoryScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: { backgroundColor: colors.background, flex: 1 },
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
+  safeArea: { backgroundColor: theme.background, flex: 1 },
   content: { padding: 20, paddingBottom: 110 },
   loadingWrapper: { alignItems: "center", justifyContent: "center", minHeight: 200 },
   emptyWrapper: { alignItems: "center", justifyContent: "center", marginTop: 60, paddingHorizontal: 24 },
   emptyIcon: { fontSize: 48, marginBottom: 16 },
-  emptyTitle: { color: colors.text, fontSize: 18, fontWeight: "800", marginBottom: 8 },
-  emptyText: { color: colors.textMuted, fontSize: 14, lineHeight: 20, textAlign: "center" },
-  count: { color: colors.textMuted, fontSize: 13, fontWeight: "600", marginBottom: 14 },
+  emptyTitle: { color: theme.text, fontSize: 18, fontWeight: "800", marginBottom: 8 },
+  emptyText: { color: theme.textMuted, fontSize: 14, lineHeight: 20, textAlign: "center" },
+  count: { color: theme.textMuted, fontSize: 13, fontWeight: "600", marginBottom: 14 },
   card: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 18,
     marginBottom: 12,
     padding: 14,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.05,
     shadowRadius: 14,
@@ -129,32 +132,32 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 16,
-    backgroundColor: colors.secondarySoft,
+    backgroundColor: theme.secondarySoft,
     alignItems: "center",
     justifyContent: "center",
     marginRight: 12,
   },
-  iconText: { color: colors.secondary, fontSize: 18, fontWeight: "900" },
+  iconText: { color: theme.secondary, fontSize: 18, fontWeight: "900" },
   cardContent: { flex: 1 },
-  title: { color: colors.text, fontSize: 15, fontWeight: "700", marginBottom: 3 },
-  meta: { color: colors.textMuted, fontSize: 12, marginBottom: 4 },
+  title: { color: theme.text, fontSize: 15, fontWeight: "700", marginBottom: 3 },
+  meta: { color: theme.textMuted, fontSize: 12, marginBottom: 4 },
   groupTag: {
     alignSelf: "flex-start",
-    backgroundColor: colors.primarySoft,
+    backgroundColor: theme.primarySoft,
     borderRadius: 8,
-    color: colors.primaryDark,
+    color: theme.primaryDark,
     fontSize: 11,
     fontWeight: "700",
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  amount: { color: colors.text, fontSize: 15, fontWeight: "800", marginLeft: 10 },
+  amount: { color: theme.text, fontSize: 15, fontWeight: "800", marginLeft: 10 },
   skeletonContainer: {
     gap: 12
   },
   skeletonCard: {
     height: 80,
     borderRadius: 20,
-    backgroundColor: colors.border
+    backgroundColor: theme.border
   }
 });

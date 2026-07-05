@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from "react-native";
-import { colors } from "../constants/colors";
+import { useTheme } from "../src/hooks/useTheme";
+import { ColorTheme } from "../src/constants/theme";
 
 type ExpenseCardProps = {
   title: string;
@@ -9,6 +10,9 @@ type ExpenseCardProps = {
 };
 
 export function ExpenseCard({ title, amount, date, paidBy }: ExpenseCardProps) {
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
+
   return (
     <View style={styles.card}>
       <View style={styles.icon}>
@@ -25,15 +29,15 @@ export function ExpenseCard({ title, amount, date, paidBy }: ExpenseCardProps) {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   card: {
     alignItems: "center",
-    backgroundColor: colors.card,
+    backgroundColor: theme.card,
     borderRadius: 20,
     flexDirection: "row",
     marginBottom: 12,
     padding: 16,
-    shadowColor: colors.shadow,
+    shadowColor: theme.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.05,
     shadowRadius: 16,
@@ -41,7 +45,7 @@ const styles = StyleSheet.create({
   },
   icon: {
     alignItems: "center",
-    backgroundColor: colors.secondarySoft,
+    backgroundColor: theme.secondarySoft,
     borderRadius: 16,
     height: 44,
     justifyContent: "center",
@@ -49,7 +53,7 @@ const styles = StyleSheet.create({
     width: 44
   },
   iconText: {
-    color: colors.secondary,
+    color: theme.secondary,
     fontSize: 18,
     fontWeight: "900"
   },
@@ -57,17 +61,17 @@ const styles = StyleSheet.create({
     flex: 1
   },
   title: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     fontWeight: "700",
     marginBottom: 4
   },
   meta: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 13
   },
   amount: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 16,
     fontWeight: "800",
     marginLeft: 10

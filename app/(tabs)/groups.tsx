@@ -14,13 +14,16 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { GroupCard } from "../../components/GroupCard";
 import { Header } from "../../components/Header";
 import { EmptyState } from "../../components/EmptyState";
-import { colors } from "../../constants/colors";
 import { useAuth } from "../../src/hooks/useAuth";
 import { getUserGroups, type Group } from "../../src/services/groupService";
 import { formatCurrency } from "../../src/utils/format";
+import { useTheme } from "../../src/hooks/useTheme";
+import { ColorTheme } from "../../src/constants/theme";
 
 export default function GroupsScreen() {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const styles = getStyles(theme);
   const [groupsList, setGroupsList] = useState<
     (Group & {
       group_members: { user_id: string }[];
@@ -73,7 +76,7 @@ export default function GroupsScreen() {
           keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
-              colors={[colors.primary]}
+              colors={[theme.primary]}
               onRefresh={onRefresh}
               refreshing={refreshing}
             />
@@ -87,7 +90,7 @@ export default function GroupsScreen() {
             <TextInput
               onChangeText={setSearchQuery}
               placeholder="Search groups"
-              placeholderTextColor={colors.textMuted}
+              placeholderTextColor={theme.textMuted}
               style={styles.searchInput}
               value={searchQuery}
             />
@@ -108,25 +111,32 @@ export default function GroupsScreen() {
                   : "Create a group to start splitting bills with friends."
               }
               icon="👥"
-              onActionPress={searchQuery ? undefined : () => router.push("/create-group")}
-              title={searchQuery ? "No groups match your search" : "No groups yet"}
+              onActionPress={() => router.push("/create-group")}
+              title={searchQuery ? "No groups found" : "No groups yet"}
             />
           ) : (
             filteredGroups.map((group) => {
-              const totalExpensesAmount = group.expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount as any), 0) || 0;
-              const formattedTotal = formatCurrency(totalExpensesAmount);
+              const membersCount = group.group_members?.length || 0;
+              const totalExpenses = formatCurrency(
+                group.expenses?.reduce((sum, exp) => sum + (exp.amount || 0), 0) || 0
+              );
 
               return (
                 <Pressable
                   key={group.id}
-                  onPress={() => router.push({ pathname: "/group-details", params: { id: group.id } })}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/group-details",
+                      params: { id: group.id }
+                    })
+                  }
                   style={({ pressed }) => [pressed && styles.cardPressed]}
                 >
                   <GroupCard
                     createdAt={group.created_at}
-                    membersCount={group.group_members?.length || 0}
+                    membersCount={membersCount}
                     name={group.name}
-                    totalExpenses={formattedTotal}
+                    totalExpenses={totalExpenses}
                   />
                 </Pressable>
               );
@@ -145,9 +155,9 @@ export default function GroupsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const getStyles = (theme: ColorTheme) => StyleSheet.create({
   safeArea: {
-    backgroundColor: colors.background,
+    backgroundColor: theme.background,
     flex: 1
   },
   wrapper: {
@@ -163,8 +173,8 @@ const styles = StyleSheet.create({
   },
   searchBox: {
     alignItems: "center",
-    backgroundColor: colors.white,
-    borderColor: colors.border,
+    backgroundColor: theme.input,
+    borderColor: theme.border,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
@@ -172,13 +182,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16
   },
   searchIcon: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 13,
     fontWeight: "800",
     marginRight: 8
   },
   searchInput: {
-    color: colors.text,
+    color: theme.text,
     flex: 1,
     fontSize: 16,
     minHeight: 52
@@ -199,27 +209,27 @@ const styles = StyleSheet.create({
     marginBottom: 16
   },
   emptyTitle: {
-    color: colors.text,
+    color: theme.text,
     fontSize: 18,
     fontWeight: "800",
     marginBottom: 8
   },
   emptyText: {
-    color: colors.textMuted,
+    color: theme.textMuted,
     fontSize: 14,
     lineHeight: 20,
     textAlign: "center"
   },
   fab: {
     alignItems: "center",
-    backgroundColor: colors.primary,
+    backgroundColor: theme.primary,
     borderRadius: 32,
     bottom: 22,
     height: 64,
     justifyContent: "center",
     position: "absolute",
     right: 22,
-    shadowColor: colors.primary,
+    shadowColor: theme.primary,
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -231,7 +241,7 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.98 }]
   },
   fabText: {
-    color: colors.white,
+    color: theme.white,
     fontSize: 34,
     fontWeight: "500",
     marginTop: -3
@@ -242,6 +252,6 @@ const styles = StyleSheet.create({
   skeletonCard: {
     height: 90,
     borderRadius: 20,
-    backgroundColor: colors.border
+    backgroundColor: theme.border
   }
 });
