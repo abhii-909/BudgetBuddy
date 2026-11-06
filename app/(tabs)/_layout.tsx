@@ -51,6 +51,7 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: theme.card,
           borderTopColor: theme.border,
+          borderTopWidth: 1,
           height: 60 + bottomInset,
           paddingBottom: bottomInset,
           paddingHorizontal: 6,
@@ -58,7 +59,8 @@ export default function TabsLayout() {
           shadowColor: theme.shadow,
           shadowOffset: { width: 0, height: -8 },
           shadowOpacity: isDark ? 0.28 : 0.08,
-          shadowRadius: 18
+          shadowRadius: 18,
+          elevation: 8
         }
       }}
     >

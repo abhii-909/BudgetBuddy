@@ -2,19 +2,31 @@
   "expo": {
     "name": "BudgetBuddy",
     "slug": "budget-buddy",
-    "version": "1.0.0-alpha",
+    "version": "0.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "budgetbuddy",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "userInterfaceStyle": "automatic",
     "splash": {
-      "image": "./assets/splash-image.png",
+      "image": "./assets/icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0F172A"
+      "backgroundColor": "#F8FAFC"
     },
     "plugins": [
       "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 160,
+          "resizeMode": "contain",
+          "backgroundColor": "#F8FAFC",
+          "dark": {
+            "image": "./assets/icon.png",
+            "backgroundColor": "#0A0E1A"
+          }
+        }
+      ],
       [
         "expo-image-picker",
         {
@@ -32,8 +44,9 @@
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0F172A"
-      }
+        "backgroundColor": "#F8FAFC"
+      },
+      "versionCode": 2
     },
     "web": {
       "bundler": "metro"

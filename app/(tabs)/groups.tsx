@@ -22,7 +22,7 @@ import { ColorTheme } from "../../src/constants/theme";
 
 export default function GroupsScreen() {
   const { user } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const styles = getStyles(theme);
   const [groupsList, setGroupsList] = useState<
     (Group & {

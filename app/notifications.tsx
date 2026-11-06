@@ -122,10 +122,11 @@ export default function NotificationsScreen() {
           style={({ pressed }) => [
             styles.markAllButton,
             pressed && styles.pressed,
-            !hasUnread && styles.disabled,
           ]}
         >
-          <Text style={styles.markAllText}>Mark all read</Text>
+          <Text style={[styles.markAllText, !hasUnread && styles.markAllDisabledText]}>
+            Mark all read
+          </Text>
         </Pressable>
       </View>
 
@@ -223,7 +224,10 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
   markAllText: {
     fontSize: 13,
     fontWeight: "700",
-    color: theme.primary,
+    color: theme.primaryDark,
+  },
+  markAllDisabledText: {
+    color: theme.textMuted,
   },
   loadingContainer: {
     flex: 1,

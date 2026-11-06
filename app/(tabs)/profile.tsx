@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState, useCallback } from "react";
 import {
@@ -25,7 +26,7 @@ import { ColorTheme } from "../../src/constants/theme";
 
 export default function ProfileScreen() {
   const { logout, user, updateDisplayName, refreshProfile } = useAuth();
-  const { theme, themeMode, setThemeMode } = useTheme();
+  const { theme, isDark, setThemeMode } = useTheme();
   const styles = getStyles(theme);
   
   const [loading, setLoading] = useState(true);
@@ -141,6 +142,11 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleToggleTheme = async () => {
+    // If currently dark, switch to light. If currently light, switch to dark.
+    await setThemeMode(isDark ? "light" : "dark");
+  };
+
   const handlePickAvatar = async () => {
     if (!user) return;
     setUploading(true);
@@ -150,9 +156,12 @@ export default function ProfileScreen() {
     if (error) {
       Alert.alert("Upload Error", error);
     } else if (storagePath) {
-      // Synchronize context immediately so Dashboard header updates
+      // Immediately reflect the new avatar in local state (before the network round-trip)
+      setProfile(prev => prev ? { ...prev, avatar_url: storagePath } : null);
+      // Synchronize auth context so Dashboard header also updates
       await refreshProfile();
-      loadProfileData();
+      // Re-fetch profile to confirm the saved state from the database
+      await loadProfileData();
     }
   };
 
@@ -222,6 +231,26 @@ export default function ProfileScreen() {
         }
         showsVerticalScrollIndicator={false}
       >
+        {/* Profile Header Row with Theme Toggle */}
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>Profile</Text>
+          <Pressable
+            accessibilityLabel={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            accessibilityRole="button"
+            onPress={handleToggleTheme}
+            style={({ pressed }) => [
+              styles.themeToggleButton,
+              pressed && styles.themeToggleButtonPressed
+            ]}
+          >
+            <Ionicons
+              name={isDark ? "sunny-outline" : "moon-outline"}
+              size={22}
+              color={isDark ? "#F59E0B" : theme.text}
+            />
+          </Pressable>
+        </View>
+
         {/* Profile Card Hero */}
         <View style={styles.heroCard}>
           <View style={styles.avatarContainer}>
@@ -234,7 +263,9 @@ export default function ProfileScreen() {
               loading={uploading}
             />
             <Pressable onPress={handlePickAvatar} disabled={uploading}>
-              <Text style={styles.changePhotoText}>Change Photo</Text>
+              <Text style={styles.changePhotoText}>
+                {profile?.avatar_url ? "Change Photo" : "Upload Photo"}
+              </Text>
             </Pressable>
             {profile?.avatar_url ? (
               <Pressable onPress={handleRemoveAvatar} disabled={uploading}>
@@ -320,23 +351,6 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
 
-        <Text style={styles.sectionTitle}>Preferences</Text>
-  <Text style={styles.sectionTitle}>Appearance</Text>
-  <View style={styles.settingsCard}>
-    <Pressable style={styles.settingRow} onPress={() => setThemeMode('system')}>
-      <Text style={styles.settingText}>System</Text>
-      <Text style={styles.chevron}>{themeMode === 'system' ? '✓' : '○'}</Text>
-    </Pressable>
-    <Pressable style={styles.settingRow} onPress={() => setThemeMode('light')}>
-      <Text style={styles.settingText}>Light</Text>
-      <Text style={styles.chevron}>{themeMode === 'light' ? '✓' : '○'}</Text>
-    </Pressable>
-    <Pressable style={styles.settingRow} onPress={() => setThemeMode('dark')}>
-      <Text style={styles.settingText}>Dark</Text>
-      <Text style={styles.chevron}>{themeMode === 'dark' ? '✓' : '○'}</Text>
-    </Pressable>
-  </View>
-
         {/* Logout Section */}
         <CustomButton
           onPress={handleLogout}
@@ -396,6 +410,36 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
   content: {
     padding: 20,
     paddingBottom: 40
+  },
+  headerRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20
+  },
+  headerTitle: {
+    color: theme.text,
+    fontSize: 26,
+    fontWeight: "900"
+  },
+  themeToggleButton: {
+    alignItems: "center",
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderRadius: 22,
+    borderWidth: 1,
+    elevation: 2,
+    height: 44,
+    justifyContent: "center",
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    width: 44
+  },
+  themeToggleButtonPressed: {
+    opacity: 0.75,
+    transform: [{ scale: 0.95 }]
   },
   loadingContainer: {
     alignItems: "center",

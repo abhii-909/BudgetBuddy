@@ -269,7 +269,7 @@ function ActivityRow({ item }: { item: ActivityItem }) {
 
 export default function DashboardScreen() {
   const { user, profile } = useAuth();
-  const { theme } = useTheme();
+  const { theme, isDark } = useTheme();
   const allStyles = getStyles(theme);
   const { styles, skeletonStyles } = allStyles;
   const [data, setData] = useState<DashboardData | null>(null);

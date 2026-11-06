@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { StyleProp, StyleSheet, Text, TextStyle, View } from "react-native";
 import { useTheme } from "../src/hooks/useTheme";
 import { ColorTheme } from "../src/constants/theme";
 import { CustomButton } from "./CustomButton";
@@ -9,6 +9,7 @@ type EmptyStateProps = {
   description: string;
   actionText?: string;
   onActionPress?: () => void;
+  actionTextStyle?: StyleProp<TextStyle>;
 };
 
 export function EmptyState({
@@ -16,7 +17,8 @@ export function EmptyState({
   title,
   description,
   actionText,
-  onActionPress
+  onActionPress,
+  actionTextStyle
 }: EmptyStateProps) {
   const { theme } = useTheme();
   const styles = getStyles(theme);
@@ -30,8 +32,9 @@ export function EmptyState({
         <CustomButton
           onPress={onActionPress}
           style={styles.button}
+          textStyle={actionTextStyle}
           title={actionText}
-          variant="secondary"
+          variant="primary"
         />
       ) : null}
     </View>

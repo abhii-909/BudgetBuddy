@@ -1,11 +1,25 @@
+import * as SplashScreen from "expo-splash-screen";
+import { useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider } from "../src/contexts/AuthContext";
 import { ThemeProvider } from "../src/contexts/ThemeContext";
+import { useAuth } from "../src/hooks/useAuth";
 import { useTheme } from "../src/hooks/useTheme";
+
+// Keep splash screen visible while app initializes
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function AppStack() {
   const { theme, isDark } = useTheme();
+  const { loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading) {
+      SplashScreen.hideAsync().catch(() => {});
+    }
+  }, [loading]);
+
   return (
     <>
       <StatusBar backgroundColor={theme.background} style={isDark ? "light" : "dark"} />
@@ -22,6 +36,10 @@ function AppStack() {
         <Stack.Screen name="index" />
         <Stack.Screen name="login" />
         <Stack.Screen name="signup" />
+        <Stack.Screen name="confirm-email" />
+        <Stack.Screen name="auth-callback" />
+        <Stack.Screen name="forgot-password" />
+        <Stack.Screen name="reset-password" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="create-group" />
         <Stack.Screen name="group-details" />

@@ -54,26 +54,26 @@ export const lightThemeColors: ColorTheme = {
 };
 
 export const darkThemeColors: ColorTheme = {
-  background: "#000000",
-  card: "#171717",
-  primary: "#10B981",
+  background: "#0A0E1A",
+  card: "#121829",
+  primary: "#10B981",       // Crisp vibrant emerald adapted for dark surfaces
   primaryDark: "#059669",
   primarySoft: "#064E3B",
-  secondary: "#3B82F6",
-  secondarySoft: "#1E3A8A",
-  danger: "#EF4444",
-  dangerSoft: "#7F1D1D",
-  warning: "#F59E0B",
-  warningSoft: "#78350F",
-  text: "#F5F5F5",
-  textMuted: "#A3A3A3",
-  border: "#2A2A2A",
-  input: "#101010",
+  secondary: "#34D399",
+  secondarySoft: "#064E3B",
+  danger: "#F87171",
+  dangerSoft: "#450A0A",
+  warning: "#FBBF24",
+  warningSoft: "#451A03",
+  text: "#F8FAFC",
+  textMuted: "#94A3B8",
+  border: "#1E293B",
+  input: "#0F172A",
   shadow: "#000000",
   white: "#FFFFFF",
   
-  surface: "#1F1F1F",
-  divider: "rgba(255, 255, 255, 0.1)",
-  disabled: "#3A3A3A",
-  placeholder: "#8A8A8A"
+  surface: "#1A2238",
+  divider: "rgba(255, 255, 255, 0.08)",
+  disabled: "#334155",
+  placeholder: "#64748B"
 };

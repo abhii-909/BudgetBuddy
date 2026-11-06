@@ -7,7 +7,7 @@ import { useTheme } from "../src/hooks/useTheme";
 import { ColorTheme } from "../src/constants/theme";
 
 export default function WelcomeScreen() {
-  const { session, loading } = useAuth();
+  const { session, loading, isPasswordRecovery } = useAuth();
   const { theme } = useTheme();
   const styles = getStyles(theme);
 
@@ -29,7 +29,7 @@ export default function WelcomeScreen() {
     );
   }
 
-  if (session) {
+  if (session && !isPasswordRecovery) {
     return <Redirect href="/(tabs)/dashboard" />;
   }
 
@@ -85,21 +85,24 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: theme.primary,
-    borderRadius: 34,
-    height: 88,
+    backgroundColor: theme.card,
+    borderRadius: 24,
+    height: 84,
     justifyContent: "center",
     marginBottom: 24,
-    shadowColor: theme.primary,
-    shadowOffset: { width: 0, height: 14 },
-    shadowOpacity: 0.25,
-    shadowRadius: 24,
-    width: 88
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+    width: 84
   },
   logoImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 34
+    width: "82%",
+    height: "82%",
+    borderRadius: 18
   },
   logoText: {
     color: theme.white,

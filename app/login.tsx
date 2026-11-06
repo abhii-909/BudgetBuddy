@@ -23,7 +23,7 @@ const isValidEmail = (email: string) => {
 };
 
 export default function LoginScreen() {
-  const { login, session, loading } = useAuth();
+  const { login, session, loading, isPasswordRecovery } = useAuth();
   const { theme } = useTheme();
   const styles = getStyles(theme);
   const [email, setEmail] = useState("");
@@ -43,7 +43,7 @@ export default function LoginScreen() {
     );
   }
 
-  if (session) {
+  if (session && !isPasswordRecovery) {
     return <Redirect href="/(tabs)/dashboard" />;
   }
 
@@ -132,7 +132,19 @@ export default function LoginScreen() {
               value={email}
             />
 
-            <Text style={styles.label}>Password</Text>
+            <View style={styles.passwordLabelRow}>
+              <Text style={styles.labelNoMargin}>Password</Text>
+              <Pressable
+                onPress={() =>
+                  router.push({
+                    pathname: "/forgot-password",
+                    params: email.trim() ? { email: email.trim() } : undefined
+                  })
+                }
+              >
+                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+              </Pressable>
+            </View>
             <TextInput
               onChangeText={setPassword}
               onFocus={() => setFocusedField("password")}
@@ -214,17 +226,24 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: theme.primary,
-    borderRadius: 24,
+    backgroundColor: theme.card,
+    borderRadius: 20,
     height: 64,
     justifyContent: "center",
     marginBottom: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
     width: 64
   },
   logoImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 24
+    width: "82%",
+    height: "82%",
+    borderRadius: 14
   },
   logoText: {
     color: theme.white,
@@ -260,6 +279,23 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
     fontWeight: "800",
     marginBottom: 8,
     marginTop: 14
+  },
+  passwordLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    marginTop: 14
+  },
+  labelNoMargin: {
+    color: theme.text,
+    fontSize: 14,
+    fontWeight: "800"
+  },
+  forgotPasswordText: {
+    color: theme.primary,
+    fontSize: 13,
+    fontWeight: "700"
   },
   input: {
     backgroundColor: theme.input,

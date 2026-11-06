@@ -36,6 +36,9 @@ export default function SignupScreen() {
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
 
+  const [isDuplicateAccount, setIsDuplicateAccount] = useState(false);
+  const [duplicateEmail, setDuplicateEmail] = useState("");
+
   const [focusedField, setFocusedField] = useState<"fullName" | "email" | "password" | "confirmPassword" | null>(null);
 
   if (loading) {
@@ -77,6 +80,7 @@ export default function SignupScreen() {
 
     setErrorMessage("");
     setSuccessMessage("");
+    setIsDuplicateAccount(false);
 
     if (validationError) {
       setErrorMessage(validationError);
@@ -85,18 +89,36 @@ export default function SignupScreen() {
 
     setLoadingSignup(true);
 
-    const { error } = await signup(fullName.trim(), email.trim(), password);
+    const trimmedEmail = email.trim();
+    const result = await signup(fullName.trim(), trimmedEmail, password);
 
     setLoadingSignup(false);
 
-    if (error) {
-      setErrorMessage(error);
+    if (result.error) {
+      // Check if error message explicitly points to duplicate user
+      if (
+        result.error.toLowerCase().includes("already registered") ||
+        result.error.toLowerCase().includes("user already exists")
+      ) {
+        setIsDuplicateAccount(true);
+        setDuplicateEmail(trimmedEmail);
+        return;
+      }
+      setErrorMessage(result.error);
       return;
     }
 
-    setSuccessMessage(
-      "Account created successfully. Please check your email to confirm your account."
-    );
+    if (result.isDuplicate) {
+      setIsDuplicateAccount(true);
+      setDuplicateEmail(trimmedEmail);
+      return;
+    }
+
+    // Success: navigate to the confirmation link notification screen
+    router.push({
+      pathname: "/confirm-email",
+      params: { email: trimmedEmail }
+    });
   };
 
   return (
@@ -185,6 +207,34 @@ export default function SignupScreen() {
             />
 
 
+            {isDuplicateAccount ? (
+              <View style={styles.duplicateBox}>
+                <Text style={styles.duplicateTitle}>An account with this email already exists.</Text>
+                <Text style={styles.duplicateSubtitle}>
+                  Would you like to log in or reset your password?
+                </Text>
+                <View style={styles.duplicateActions}>
+                  <Pressable
+                    onPress={() => router.push("/login")}
+                    style={styles.duplicateButton}
+                  >
+                    <Text style={styles.duplicateButtonText}>Go to Login</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() =>
+                      router.push({
+                        pathname: "/forgot-password",
+                        params: { email: duplicateEmail }
+                      })
+                    }
+                    style={styles.duplicateButtonSecondary}
+                  >
+                    <Text style={styles.duplicateButtonSecondaryText}>Forgot Password?</Text>
+                  </Pressable>
+                </View>
+              </View>
+            ) : null}
+
             {errorMessage ? (
               <View style={styles.messageBoxError}>
                 <Text style={styles.errorText}>{errorMessage}</Text>
@@ -251,17 +301,24 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
   },
   logo: {
     alignItems: "center",
-    backgroundColor: theme.primary,
-    borderRadius: 24,
+    backgroundColor: theme.card,
+    borderRadius: 20,
     height: 64,
     justifyContent: "center",
     marginBottom: 18,
+    borderWidth: 1,
+    borderColor: theme.border,
+    shadowColor: theme.shadow,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 3,
     width: 64
   },
   logoImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 24
+    width: "82%",
+    height: "82%",
+    borderRadius: 14
   },
   logoText: {
     color: theme.white,
@@ -323,6 +380,56 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
     borderRadius: 14,
     marginTop: 18,
     padding: 12
+  },
+  duplicateBox: {
+    backgroundColor: theme.warningSoft,
+    borderColor: theme.warning,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginTop: 18,
+    padding: 14
+  },
+  duplicateTitle: {
+    color: theme.warning,
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4
+  },
+  duplicateSubtitle: {
+    color: theme.text,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12
+  },
+  duplicateActions: {
+    flexDirection: "row",
+    gap: 10
+  },
+  duplicateButton: {
+    backgroundColor: theme.primary,
+    borderRadius: 10,
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center"
+  },
+  duplicateButtonText: {
+    color: theme.white,
+    fontSize: 13,
+    fontWeight: "800"
+  },
+  duplicateButtonSecondary: {
+    backgroundColor: theme.surface,
+    borderColor: theme.border,
+    borderRadius: 10,
+    borderWidth: 1,
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center"
+  },
+  duplicateButtonSecondaryText: {
+    color: theme.text,
+    fontSize: 13,
+    fontWeight: "700"
   },
   errorText: {
     color: theme.danger,

@@ -183,7 +183,7 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
   },
   inputFocused: {
     borderColor: theme.primary,
-    backgroundColor: theme.white
+    backgroundColor: theme.surface
   },
   messageBoxError: {
     backgroundColor: theme.dangerSoft,

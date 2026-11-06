@@ -24,7 +24,7 @@ const getAuthErrorMessage = (error: unknown) => {
 
 export const signUp = async ({ email, password, fullName }: SignUpCredentials) => {
   try {
-    const emailRedirectTo = Linking.createURL("login");
+    const emailRedirectTo = Linking.createURL("auth-callback");
 
     const { data, error } = await supabase.auth.signUp({
       email,
@@ -45,35 +45,75 @@ export const signUp = async ({ email, password, fullName }: SignUpCredentials) =
       throw new Error("Signup completed, but no user was returned.");
     }
 
-    // Task 1: Create a profiles record. Prevent duplicates. Log errors.
-    try {
-      const { data: existingProfile, error: checkError } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("id", data.user.id)
-        .maybeSingle();
+    // Check if user already exists (Supabase returns an empty identities array when email confirmation is enabled and the email is taken)
+    const isDuplicate = Array.isArray(data.user.identities) && data.user.identities.length === 0;
 
-      if (checkError) {
-        console.error("Error checking existing profile:", checkError);
+    return {
+      data,
+      isDuplicate,
+      needsConfirmation: !data.session,
+      error: null
+    };
+  } catch (error) {
+    return {
+      data: null,
+      isDuplicate: false,
+      needsConfirmation: false,
+      error: getAuthErrorMessage(error)
+    };
+  }
+};
+
+export const resendConfirmation = async (email: string) => {
+  try {
+    const emailRedirectTo = Linking.createURL("auth-callback");
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo
       }
+    });
 
-      if (!existingProfile) {
-        const { error: insertError } = await supabase
-          .from("profiles")
-          .insert({
-            id: data.user.id,
-            full_name: fullName,
-            email: email
-          });
+    if (error) {
+      throw error;
+    }
 
-        if (insertError) {
-          console.error("FAILED TO INSERT PROFILE (potential RLS issue):", insertError);
-          throw new Error(`Profile creation failed: ${insertError.message}`);
-        }
-      }
-    } catch (profileError: any) {
-      console.error("Profile creation step threw an error:", profileError);
-      throw profileError;
+    return { error: null };
+  } catch (error) {
+    return {
+      error: getAuthErrorMessage(error)
+    };
+  }
+};
+
+export const requestPasswordReset = async (email: string) => {
+  try {
+    const redirectTo = Linking.createURL("reset-password");
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    return { error: null };
+  } catch (error) {
+    return {
+      error: getAuthErrorMessage(error)
+    };
+  }
+};
+
+export const updatePassword = async (password: string) => {
+  try {
+    const { data, error } = await supabase.auth.updateUser({
+      password
+    });
+
+    if (error) {
+      throw error;
     }
 
     return { data, error: null };

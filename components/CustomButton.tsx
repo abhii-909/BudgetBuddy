@@ -1,4 +1,4 @@
-import { Pressable, StyleProp, StyleSheet, Text, ViewStyle } from "react-native";
+import { Pressable, StyleProp, StyleSheet, Text, TextStyle, ViewStyle } from "react-native";
 import { useTheme } from "../src/hooks/useTheme";
 import { ColorTheme } from "../src/constants/theme";
 
@@ -7,6 +7,7 @@ type CustomButtonProps = {
   onPress: () => void;
   variant?: "primary" | "secondary" | "ghost" | "danger";
   style?: StyleProp<ViewStyle>;
+  textStyle?: StyleProp<TextStyle>;
   disabled?: boolean;
 };
 
@@ -15,6 +16,7 @@ export function CustomButton({
   onPress,
   variant = "primary",
   style,
+  textStyle,
   disabled = false
 }: CustomButtonProps) {
   const { theme } = useTheme();
@@ -36,7 +38,8 @@ export function CustomButton({
         style={[
           styles.text,
           variant === "ghost" && styles.ghostText,
-          variant === "secondary" && styles.secondaryText
+          variant === "secondary" && styles.secondaryText,
+          textStyle
         ]}
       >
         {title}
@@ -57,7 +60,7 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
     backgroundColor: theme.primary
   },
   secondary: {
-    backgroundColor: theme.secondarySoft
+    backgroundColor: theme.primarySoft
   },
   ghost: {
     backgroundColor: theme.surface,
@@ -84,6 +87,6 @@ const getStyles = (theme: ColorTheme) => StyleSheet.create({
     color: theme.textMuted
   },
   secondaryText: {
-    color: theme.secondary
+    color: theme.primaryDark
   }
 });
